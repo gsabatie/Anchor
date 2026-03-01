@@ -1,0 +1,45 @@
+steps:
+  # Build backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/anchor/backend:$COMMIT_SHA'
+      - './backend'
+
+  # Push backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/anchor/backend:$COMMIT_SHA'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'anchor-backend'
+      - '--image'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/anchor/backend:$COMMIT_SHA'
+      - '--region'
+      - '${_REGION}'
+
+  # Build and deploy frontend
+  - name: 'node:22'
+    entrypoint: bash
+    args:
+      - '-c'
+      - 'cd frontend && npm ci && npm run build'
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - '-c'
+      - 'cd frontend && npx firebase-tools deploy --only hosting --project $PROJECT_ID'
+
+substitutions:
+  _REGION: europe-west1
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/anchor/backend:$COMMIT_SHA'
