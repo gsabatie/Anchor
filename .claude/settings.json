@@ -1,0 +1,11 @@
+{
+    "mcpServers": {
+        "gcloud": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@anthropic-ai/gcloud-mcp-server"
+            ]
+        }
+    }
+}

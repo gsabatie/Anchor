@@ -1,6 +1,6 @@
 # Environment
-.env
-.env.local
+.env*
+!.env.example
 
 # Python
 __pycache__/
@@ -30,7 +30,7 @@ Thumbs.db
 *.tfstate
 *.tfstate.backup
 .terraform/
-.terraform.lock.hcl
+# Keep .terraform.lock.hcl committed for reproducible builds
 
 # Firebase
 .firebase/

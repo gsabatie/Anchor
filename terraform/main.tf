@@ -19,7 +19,7 @@ resource "google_artifact_registry_repository" "anchor" {
   format        = "DOCKER"
 }
 
-# Cloud Run — Backend
+# Cloud Run — Backend (requires authentication by default)
 resource "google_cloud_run_v2_service" "backend" {
   name     = "anchor-backend"
   location = var.region
@@ -42,13 +42,13 @@ resource "google_cloud_run_v2_service" "backend" {
   }
 }
 
-# Allow unauthenticated access to Cloud Run
-resource "google_cloud_run_v2_service_iam_member" "public" {
+# IAM: only the Firebase Hosting service and authenticated users can invoke
+resource "google_cloud_run_v2_service_iam_member" "frontend_invoker" {
   project  = var.project_id
   location = var.region
   name     = google_cloud_run_v2_service.backend.name
   role     = "roles/run.invoker"
-  member   = "allUsers"
+  member   = "serviceAccount:${var.project_id}@appspot.gserviceaccount.com"
 }
 
 # Firestore database
@@ -57,4 +57,28 @@ resource "google_firestore_database" "default" {
   name        = "(default)"
   location_id = var.region
   type        = "FIRESTORE_NATIVE"
+}
+
+# Firestore security rules — deny all client access (backend uses admin SDK)
+resource "google_firebaserules_ruleset" "firestore" {
+  source {
+    files {
+      name    = "firestore.rules"
+      content = <<-EOT
+        rules_version = '2';
+        service cloud.firestore {
+          match /databases/{database}/documents {
+            match /{document=**} {
+              allow read, write: if false;
+            }
+          }
+        }
+      EOT
+    }
+  }
+}
+
+resource "google_firebaserules_release" "firestore" {
+  name         = "cloud.firestore/database/${google_firestore_database.default.name}"
+  ruleset_name = google_firebaserules_ruleset.firestore.name
 }
