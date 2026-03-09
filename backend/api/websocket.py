@@ -53,7 +53,7 @@ async def session_ws(websocket: WebSocket):
         await websocket.send_json({
             "type": "connection",
             "status": "connected",
-            "message": "Bonjour, je suis Anchor. Je suis là avec toi. Comment tu te sens là, maintenant ?",
+            "message": "Hi, I'm Anchor. I'm here with you. How are you feeling right now?",
         })
 
         # Create tasks for bidirectional communication

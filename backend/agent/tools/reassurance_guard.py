@@ -1,22 +1,29 @@
 REASSURANCE_PATTERNS = [
-    "ça va aller",
-    "t'inquiète pas",
-    "ne t'inquiète pas",
-    "c'est propre",
-    "c'est sûr",
-    "c'est bien fermé",
-    "il ne s'est rien passé",
-    "tu n'as rien fait de mal",
-    "tout va bien",
-    "il n'y a pas de danger",
-    "c'est pas grave",
-    "rien de mal",
+    "it's going to be okay",
+    "everything will be fine",
+    "don't worry",
+    "there's nothing to worry about",
+    "it's clean",
+    "it's safe",
+    "the door is locked",
+    "nothing bad happened",
+    "you didn't do anything wrong",
+    "there's no danger",
+    "it's not a big deal",
+    "you're safe",
+    "no harm done",
+    "i'm sure it's fine",
+    "that won't happen",
+    "everything is fine",
+    "nothing to fear",
+    "you have nothing to worry about",
+    "it's all good",
 ]
 
 ERP_REDIRECT = (
-    "Je t'entends, et je sais que tu souffres là. "
-    "Mais tu sais aussi que si je te rassure, ça ne va pas t'aider vraiment. "
-    "On va traverser ça ensemble autrement."
+    "I hear you, and I know you're hurting right now. "
+    "But you also know that if I reassure you, it won't truly help. "
+    "Let's work through this together differently."
 )
 
 
