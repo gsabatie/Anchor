@@ -174,6 +174,36 @@ terraform apply
 
 ---
 
+## Tests
+
+### Installer les dépendances de test
+
+```bash
+cd backend
+source .venv/bin/activate
+pip install -r requirements-test.txt
+```
+
+### Lancer les tests unitaires + intégration (sans clé API)
+
+```bash
+python -m pytest tests/ -m "not live" -v
+```
+
+### Lancer les tests end-to-end live (nécessite `GOOGLE_GENAI_API_KEY` dans `.env`)
+
+```bash
+python -m pytest tests/ -m "live" -v
+```
+
+### Lancer tous les tests
+
+```bash
+python -m pytest tests/ -v
+```
+
+---
+
 ## Note clinique
 
 Anchor **n'est pas** un substitut à un suivi thérapeutique, ni un outil de diagnostic. C'est un compagnon d'entraînement ERP entre les séances, un support pour pratiquer les techniques de façon autonome.
