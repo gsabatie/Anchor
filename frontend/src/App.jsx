@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import AudioCapture from './components/AudioCapture'
 import ExposureImage from './components/ExposureImage'
 import AnxietyMeter from './components/AnxietyMeter'
@@ -8,6 +9,7 @@ import { useWebSocket } from './hooks/useWebSocket'
 import './App.css'
 
 function App() {
+  const { t } = useTranslation()
   const [sessionActive, setSessionActive] = useState(false)
   const token = import.meta.env.VITE_WS_AUTH_TOKEN || ''
 
@@ -34,14 +36,14 @@ function App() {
   }, [sendControl])
 
   const handleAnxietyReport = useCallback((level) => {
-    sendMessage(`Mon niveau d'anxiété est à ${level}/10`)
+    sendMessage(t('anxietyReport', { level }))
   }, [sendMessage])
 
   return (
     <div className="app">
       <header>
-        <h1>⚓ Anchor</h1>
-        <p>Compagnon ERP</p>
+        <h1>⚓ {t('title')}</h1>
+        <p>{t('subtitle')}</p>
         <div className="status-indicator">
           <span className={`status-dot ${status}`}></span>
           <span className="status-text">{status}</span>
@@ -57,7 +59,7 @@ function App() {
 
         {!sessionActive ? (
           <button className="start-btn" onClick={handleStartSession}>
-            Commencer une séance
+            {t('startSession')}
           </button>
         ) : (
           <div className="session">
@@ -65,14 +67,14 @@ function App() {
                 {transcript && transcript.length > 0 ? (
                   transcript.map((msg, idx) => (
                     <div key={idx} className={`message ${msg.role}`}>
-                      <span className="role">{msg.role === 'user' ? 'Vous' : 'Anchor'}</span>
+                      <span className="role">{msg.role === 'user' ? t('you') : t('anchor')}</span>
                       <p>{msg.content}</p>
                     </div>
                   ))
                 ) : (
                   <div className="message assistant">
-                    <span className="role">Anchor</span>
-                    <p>Connexion en cours...</p>
+                    <span className="role">{t('anchor')}</span>
+                    <p>{t('connecting')}</p>
                   </div>
                 )}
               </div>
@@ -83,7 +85,7 @@ function App() {
             <ERPTimer data={timerData} />
 
               <button className="end-btn" onClick={handleEndSession}>
-                Terminer la séance
+                {t('endSession')}
               </button>
           </div>
         )}

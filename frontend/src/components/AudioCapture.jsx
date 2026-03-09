@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAudioStream } from '../hooks/useAudioStream'
 
 export default function AudioCapture({ sendAudio, websocket }) {
+  const { t } = useTranslation()
   const [isProcessing, setIsProcessing] = useState(false)
 
   const handleAudioData = useCallback((pcm16Buffer) => {
@@ -36,9 +38,9 @@ export default function AudioCapture({ sendAudio, websocket }) {
         disabled={!isConnected || isProcessing}
         className={`audio-btn ${recording ? 'recording' : ''} ${!isConnected ? 'disabled' : ''}`}
       >
-        {recording ? '⏹ Arrêter' : '🎤 Parler'}
+        {recording ? `⏹ ${t('stopRecording')}` : `🎤 ${t('startRecording')}`}
       </button>
-      {!isConnected && <span className="status-text">Connexion en cours...</span>}
+      {!isConnected && <span className="status-text">{t('connecting')}</span>}
     </div>
   )
 }
