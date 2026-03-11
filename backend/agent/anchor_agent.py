@@ -14,7 +14,7 @@ from agent.prompts.system_prompt import SYSTEM_PROMPT
 from agent.tools.erp_timer import erp_timer
 from agent.tools.hierarchy_builder import hierarchy_builder
 from agent.tools.image_generator import image_generator
-from agent.tools.reassurance_guard import reassurance_guard, REASSURANCE_PATTERNS, ERP_REDIRECT
+from agent.tools.reassurance_guard import reassurance_guard, _check_patterns, _pick_redirect
 from agent.tools.session_tracker import session_tracker
 
 logger = logging.getLogger(__name__)
@@ -59,20 +59,19 @@ def _after_model_callback(
         return None
 
     text = first_part.text
-    lower = text.lower()
+    matched = _check_patterns(text)
 
-    for pattern in REASSURANCE_PATTERNS:
-        if pattern in lower:
-            logger.warning(
-                "Reassurance pattern blocked by after_model_callback: %r",
-                pattern,
-            )
-            modified_parts = [deepcopy(p) for p in llm_response.content.parts]
-            modified_parts[0].text = ERP_REDIRECT
-            return LlmResponse(
-                content=types.Content(role="model", parts=modified_parts),
-                grounding_metadata=llm_response.grounding_metadata,
-            )
+    if matched:
+        logger.warning(
+            "Reassurance pattern blocked by after_model_callback: %r",
+            matched,
+        )
+        modified_parts = [deepcopy(p) for p in llm_response.content.parts]
+        modified_parts[0].text = _pick_redirect()
+        return LlmResponse(
+            content=types.Content(role="model", parts=modified_parts),
+            grounding_metadata=llm_response.grounding_metadata,
+        )
 
     return None  # pass through unmodified
 

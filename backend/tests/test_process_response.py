@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from agent.tools.reassurance_guard import ERP_REDIRECT
+from agent.tools.reassurance_guard import _ERP_REDIRECTS
 
 
 def _make_session():
@@ -79,7 +79,7 @@ class TestProcessTextResponse:
         messages = await session._process_response(response)
         assert len(messages) == 1
         assert messages[0]["type"] == "text"
-        assert messages[0]["content"] == ERP_REDIRECT
+        assert messages[0]["content"] in _ERP_REDIRECTS
 
     @pytest.mark.asyncio
     async def test_thought_parts_skipped(self):
