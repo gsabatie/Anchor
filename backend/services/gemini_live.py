@@ -265,11 +265,12 @@ class GeminiLiveSession:
                     logger.error(f"Error sending tool response: {e}")
 
                 # Forward relevant tool results to the client
-                if tool_name == "image_generator" and result.get("image_url"):
+                if tool_name == "image_generator" and result.get("image_base64"):
                     messages.append({
                         "type": "exposure_image",
-                        "url": result["image_url"],
+                        "image_base64": result["image_base64"],
                         "prompt_used": result.get("prompt_used", ""),
+                        "level": result.get("level"),
                     })
                 elif tool_name == "erp_timer":
                     messages.append({
