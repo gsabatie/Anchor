@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from agent.tools.hierarchy_builder import hierarchy_builder
 from agent.tools.erp_timer import erp_timer, _build_coaching_schedule, _recommended_duration
-from agent.tools.session_tracker import session_tracker, VALID_ACTIONS, REQUIRED_FIELDS
+from agent.tools.session_tracker import session_tracker, VALID_ACTIONS, REQUIRED_FIELDS, _COLLECTION
 from agent.tools.image_generator import image_generator, _sanitize_prompt, _build_prompt, _get_intensity
 
 
@@ -181,24 +181,166 @@ class TestErpTimer:
 # --- session_tracker ---
 
 class TestSessionTracker:
-    def test_start_session(self):
+    def _mock_db(self):
+        """Return a mock Firestore client with a fluent collection API."""
+        db = MagicMock()
+        self._mock_doc_ref = MagicMock()
+        db.collection.return_value.document.return_value = self._mock_doc_ref
+        return db
+
+    @patch("agent.tools.session_tracker._get_db")
+    def test_start_session(self, mock_get_db):
+        mock_get_db.return_value = self._mock_db()
+
         result = session_tracker("start_session", {"user_id": "u1"})
         assert result["success"] is True
+        assert "session_id" in result
+        assert "started_at" in result
+        self._mock_doc_ref.set.assert_called_once()
+        saved = self._mock_doc_ref.set.call_args[0][0]
+        assert saved["user_id"] == "u1"
+        assert saved["status"] == "active"
+        assert saved["levels"] == []
 
-    def test_log_level(self):
+    @patch("agent.tools.session_tracker._get_db")
+    def test_start_session_with_toc_info(self, mock_get_db):
+        mock_get_db.return_value = self._mock_db()
+
+        result = session_tracker("start_session", {
+            "user_id": "u1",
+            "toc_type": "contamination",
+            "toc_description": "Fear of germs",
+        })
+        assert result["success"] is True
+        saved = self._mock_doc_ref.set.call_args[0][0]
+        assert saved["toc_type"] == "contamination"
+        assert saved["toc_description"] == "Fear of germs"
+
+    @patch("agent.tools.session_tracker._get_db")
+    def test_log_level(self, mock_get_db):
+        db = self._mock_db()
+        mock_get_db.return_value = db
+        # Simulate an existing active session
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = {"status": "active", "toc_type": "checking"}
+        self._mock_doc_ref.get.return_value = mock_doc
+
         result = session_tracker("log_level", {
             "session_id": "s1", "level": 5,
             "anxiety_peak": 7, "resistance": True,
         })
         assert result["success"] is True
+        assert result["level_entry"]["level"] == 5
+        assert result["level_entry"]["anxiety_peak"] == 7
+        assert result["level_entry"]["resistance"] is True
+        self._mock_doc_ref.update.assert_called_once()
 
-    def test_end_session(self):
+    @patch("agent.tools.session_tracker._get_db")
+    def test_log_level_session_not_found(self, mock_get_db):
+        db = self._mock_db()
+        mock_get_db.return_value = db
+        mock_doc = MagicMock()
+        mock_doc.exists = False
+        self._mock_doc_ref.get.return_value = mock_doc
+
+        result = session_tracker("log_level", {
+            "session_id": "missing", "level": 3,
+            "anxiety_peak": 5, "resistance": False,
+        })
+        assert result["success"] is False
+        assert "not found" in result["error"]
+
+    @patch("agent.tools.session_tracker._get_db")
+    def test_log_level_session_not_active(self, mock_get_db):
+        db = self._mock_db()
+        mock_get_db.return_value = db
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = {"status": "completed"}
+        self._mock_doc_ref.get.return_value = mock_doc
+
+        result = session_tracker("log_level", {
+            "session_id": "s1", "level": 3,
+            "anxiety_peak": 5, "resistance": False,
+        })
+        assert result["success"] is False
+        assert "not active" in result["error"]
+
+    @patch("agent.tools.session_tracker._get_db")
+    def test_end_session(self, mock_get_db):
+        db = self._mock_db()
+        mock_get_db.return_value = db
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = {
+            "status": "active",
+            "started_at": 1000.0,
+            "levels": [
+                {"level": 3, "anxiety_peak": 5, "resistance": True},
+                {"level": 5, "anxiety_peak": 8, "resistance": False},
+            ],
+        }
+        self._mock_doc_ref.get.return_value = mock_doc
+
         result = session_tracker("end_session", {"session_id": "s1"})
         assert result["success"] is True
+        assert "summary" in result
+        assert result["summary"]["total_levels"] == 2
+        assert result["summary"]["max_level"] == 5
+        assert result["summary"]["max_anxiety_peak"] == 8
+        assert result["summary"]["resistance_count"] == 1
+        self._mock_doc_ref.update.assert_called_once()
+        update_data = self._mock_doc_ref.update.call_args[0][0]
+        assert update_data["status"] == "completed"
 
-    def test_get_history(self):
+    @patch("agent.tools.session_tracker._get_db")
+    def test_end_session_already_ended(self, mock_get_db):
+        db = self._mock_db()
+        mock_get_db.return_value = db
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = {"status": "completed"}
+        self._mock_doc_ref.get.return_value = mock_doc
+
+        result = session_tracker("end_session", {"session_id": "s1"})
+        assert result["success"] is False
+        assert "already ended" in result["error"]
+
+    @patch("agent.tools.session_tracker._get_db")
+    def test_get_history(self, mock_get_db):
+        db = self._mock_db()
+        mock_get_db.return_value = db
+        mock_query = MagicMock()
+        db.collection.return_value.where.return_value.order_by.return_value.limit.return_value = mock_query
+
+        doc1 = MagicMock()
+        doc1.to_dict.return_value = {
+            "session_id": "s1", "started_at": 2000.0,
+            "ended_at": 3000.0, "status": "completed",
+            "toc_type": "contamination",
+            "levels": [{"level": 3}],
+            "summary": {"total_levels": 1},
+        }
+        mock_query.stream.return_value = [doc1]
+
         result = session_tracker("get_history", {"user_id": "u1"})
         assert result["success"] is True
+        assert len(result["sessions"]) == 1
+        assert result["sessions"][0]["session_id"] == "s1"
+        assert result["sessions"][0]["total_levels"] == 1
+
+    @patch("agent.tools.session_tracker._get_db")
+    def test_get_history_empty(self, mock_get_db):
+        db = self._mock_db()
+        mock_get_db.return_value = db
+        mock_query = MagicMock()
+        db.collection.return_value.where.return_value.order_by.return_value.limit.return_value = mock_query
+        mock_query.stream.return_value = []
+
+        result = session_tracker("get_history", {"user_id": "u1"})
+        assert result["success"] is True
+        assert result["sessions"] == []
 
     def test_invalid_action(self):
         result = session_tracker("delete_all", {})
@@ -209,6 +351,13 @@ class TestSessionTracker:
         result = session_tracker("log_level", {"session_id": "s1"})
         assert result["success"] is False
         assert "Missing required fields" in result["error"]
+
+    @patch("agent.tools.session_tracker._get_db")
+    def test_firestore_failure(self, mock_get_db):
+        mock_get_db.side_effect = Exception("Connection refused")
+        result = session_tracker("start_session", {"user_id": "u1"})
+        assert result["success"] is False
+        assert "failed" in result["error"]
 
 
 # --- image_generator ---
