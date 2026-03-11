@@ -4,7 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 from agent.tools.hierarchy_builder import hierarchy_builder
-from agent.tools.erp_timer import erp_timer
+from agent.tools.erp_timer import erp_timer, _build_coaching_schedule, _recommended_duration
 from agent.tools.session_tracker import session_tracker, VALID_ACTIONS, REQUIRED_FIELDS
 from agent.tools.image_generator import image_generator, _sanitize_prompt, _build_prompt, _get_intensity
 
@@ -121,28 +121,61 @@ class TestErpTimer:
         result = erp_timer(level=5, duration_minutes=15)
         assert "timer_id" in result
         assert "started_at" in result
+        assert result["duration_seconds"] == 15 * 60
+        assert result["level"] == 5
+        assert "coaching_schedule" in result
+        assert len(result["coaching_schedule"]) > 0
 
     def test_level_too_low(self):
-        result = erp_timer(level=0, duration_minutes=10)
-        assert "error" in result
+        assert "error" in erp_timer(level=0, duration_minutes=10)
 
     def test_level_too_high(self):
-        result = erp_timer(level=11, duration_minutes=10)
-        assert "error" in result
+        assert "error" in erp_timer(level=11, duration_minutes=10)
 
     def test_duration_too_short(self):
-        result = erp_timer(level=3, duration_minutes=0)
-        assert "error" in result
+        assert "error" in erp_timer(level=3, duration_minutes=0)
 
     def test_duration_too_long(self):
-        result = erp_timer(level=3, duration_minutes=121)
-        assert "error" in result
+        assert "error" in erp_timer(level=3, duration_minutes=121)
 
     def test_boundary_values(self):
         for level in (1, 10):
             for duration in (1, 120):
                 result = erp_timer(level=level, duration_minutes=duration)
                 assert "timer_id" in result
+                assert "coaching_schedule" in result
+
+    def test_schedule_ends_with_closing(self):
+        result = erp_timer(level=5, duration_minutes=20)
+        last = result["coaching_schedule"][-1]
+        assert last["phase"] == "closing"
+        assert last["offset_seconds"] == 20 * 60
+
+    def test_schedule_offsets_are_sorted(self):
+        result = erp_timer(level=3, duration_minutes=15)
+        offsets = [m["offset_seconds"] for m in result["coaching_schedule"]]
+        assert offsets == sorted(offsets)
+
+    def test_schedule_phases_follow_order(self):
+        result = erp_timer(level=5, duration_minutes=30)
+        phases = [m["phase"] for m in result["coaching_schedule"]]
+        phase_order = ["opening", "rising", "peak", "falling", "closing"]
+        # Each phase should not appear after a later phase
+        last_idx = -1
+        for phase in phases:
+            idx = phase_order.index(phase)
+            assert idx >= last_idx
+            last_idx = idx
+
+    def test_higher_levels_fewer_checkpoints(self):
+        low = _build_coaching_schedule(2, 20)
+        high = _build_coaching_schedule(9, 20)
+        assert len(low) >= len(high)
+
+    def test_recommended_duration(self):
+        assert _recommended_duration(1) == 10
+        assert _recommended_duration(5) == 20
+        assert _recommended_duration(10) == 40
 
 
 # --- session_tracker ---
