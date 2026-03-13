@@ -1,19 +1,22 @@
 steps:
-  # Build backend image
+  # 1. Build backend Docker image (double-tagged: $COMMIT_SHA + latest)
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '-t'
       - '${_REGION}-docker.pkg.dev/$PROJECT_ID/anchor/backend:$COMMIT_SHA'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/anchor/backend:latest'
       - './backend'
 
-  # Push backend image
+  # 2. Push both tags to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/anchor/backend:$COMMIT_SHA'
+      - '--all-tags'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/anchor/backend'
 
-  # Deploy to Cloud Run
+  # 3. Deploy backend to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -24,22 +27,67 @@ steps:
       - '${_REGION}-docker.pkg.dev/$PROJECT_ID/anchor/backend:$COMMIT_SHA'
       - '--region'
       - '${_REGION}'
+      - '--service-account'
+      - 'anchor-backend@$PROJECT_ID.iam.gserviceaccount.com'
+      - '--port'
+      - '8000'
+      - '--timeout'
+      - '3600'
+      - '--cpu'
+      - '1'
+      - '--memory'
+      - '512Mi'
+      - '--max-instances'
+      - '5'
+      - '--set-env-vars'
+      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_REGION=${_REGION},GEMINI_MODEL=gemini-2.0-flash,IMAGEN_MODEL=imagegeneration@006,VERTEX_LOCATION=${_REGION},FIRESTORE_COLLECTION=sessions'
+      - '--set-secrets'
+      - 'GOOGLE_GENAI_API_KEY=google-genai-api-key:latest,WS_AUTH_TOKEN=ws-auth-token:latest'
 
-  # Build and deploy frontend
-  - name: 'node:22'
-    entrypoint: bash
-    args:
-      - '-c'
-      - 'cd frontend && npm ci && npm run build'
-
+  # 4. Get backend URL and write frontend env vars
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: bash
     args:
       - '-c'
-      - 'cd frontend && npx firebase-tools deploy --only hosting --project $PROJECT_ID'
+      - |
+        BACKEND_URL=$(gcloud run services describe anchor-backend \
+          --region ${_REGION} \
+          --format 'value(status.url)')
+        WS_URL=$(echo "$BACKEND_URL" | sed 's|^https://|wss://|')
+        WS_TOKEN=$(gcloud secrets versions access latest --secret=ws-auth-token)
+        echo "VITE_BACKEND_WS_URL=${WS_URL}/ws/session" > /workspace/.env.frontend
+        echo "VITE_WS_AUTH_TOKEN=${WS_TOKEN}" >> /workspace/.env.frontend
+
+  # 5. Build frontend with injected env vars
+  - name: 'node:22'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        set -a
+        source /workspace/.env.frontend
+        set +a
+        cd frontend && npm ci && npm run build
+
+  # 6. Deploy frontend to Firebase Hosting
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - '-c'
+      - 'npx firebase-tools deploy --only hosting --project $PROJECT_ID'
+
+  # 7. Deploy Firestore rules and indexes
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: bash
+    args:
+      - '-c'
+      - 'npx firebase-tools deploy --only firestore --project $PROJECT_ID'
 
 substitutions:
   _REGION: europe-west1
 
 images:
   - '${_REGION}-docker.pkg.dev/$PROJECT_ID/anchor/backend:$COMMIT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/anchor/backend:latest'
+
+logging: CLOUD_LOGGING_ONLY
