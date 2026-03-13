@@ -79,7 +79,7 @@ function App() {
               </div>
 
               <AudioCapture sendAudio={sendAudio} />
-            <ExposureImage src={exposureImage} />
+            <ExposureImage data={exposureImage} />
               <AnxietyMeter onReport={handleAnxietyReport} />
             <ERPTimer data={timerData} />
 

@@ -111,7 +111,12 @@ export function useWebSocket(token) {
             break
 
           case 'exposure_image':
-            setExposureImage(msg.url)
+            setExposureImage({
+              src: msg.image_base64,
+              level: msg.level,
+              prompt: msg.prompt_used,
+              timestamp: Date.now(),
+            })
             break
 
           case 'timer':

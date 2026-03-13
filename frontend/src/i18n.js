@@ -19,6 +19,8 @@ i18n.use(initReactI18next).init({
         stopRecording: 'Stop',
         startRecording: 'Speak',
         exposureAlt: 'Exposure scene',
+        exposureLevel: 'Level {{level}}/10',
+        exposureLoading: 'Generating exposure image...',
         tapToSpeak: 'Tap to speak',
         tapToStop: 'Tap to stop',
         requestingMic: 'Requesting microphone...',
