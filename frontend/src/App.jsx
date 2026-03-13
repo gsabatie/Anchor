@@ -23,7 +23,6 @@ function App() {
     sendMessage,
     sendControl,
     sendAudio,
-    ws
   } = useWebSocket(sessionActive ? token : null)
 
   const handleStartSession = useCallback(() => {
@@ -79,7 +78,7 @@ function App() {
                 )}
               </div>
 
-              <AudioCapture sendAudio={sendAudio} websocket={ws} />
+              <AudioCapture sendAudio={sendAudio} />
             <ExposureImage src={exposureImage} />
               <AnxietyMeter onReport={handleAnxietyReport} />
             <ERPTimer data={timerData} />

@@ -1,60 +1,109 @@
-import { useState, useRef, useCallback } from 'react'
-
-/**
- * Convert Float32 PCM samples to Int16 PCM bytes.
- * Gemini Live expects PCM16 at 16kHz mono.
- */
-function float32ToInt16(float32Array) {
-  const int16 = new Int16Array(float32Array.length)
-  for (let i = 0; i < float32Array.length; i++) {
-    const s = Math.max(-1, Math.min(1, float32Array[i]))
-    int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff
-  }
-  return int16.buffer
-}
+import { useState, useRef, useCallback, useEffect } from 'react'
 
 export function useAudioStream(onAudioData) {
-  const [recording, setRecording] = useState(false)
+  const [status, setStatus] = useState('idle')
+  const [error, setError] = useState(null)
+  const levelRef = useRef(0)
+
   const mediaStreamRef = useRef(null)
-  const processorRef = useRef(null)
-  const contextRef = useRef(null)
+  const audioContextRef = useRef(null)
+  const workletNodeRef = useRef(null)
 
-  const start = useCallback(async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        sampleRate: 16000,
-        channelCount: 1,
-        echoCancellation: true,
-        noiseSuppression: true,
-      }
-    })
-    mediaStreamRef.current = stream
-
-    const context = new AudioContext({ sampleRate: 16000 })
-    contextRef.current = context
-
-    const source = context.createMediaStreamSource(stream)
-    const processor = context.createScriptProcessor(4096, 1, 1)
-    processorRef.current = processor
-
-    processor.onaudioprocess = (e) => {
-      const float32 = e.inputBuffer.getChannelData(0)
-      // Convert to Int16 PCM for Gemini Live
-      const pcm16 = float32ToInt16(float32)
-      onAudioData(pcm16)
-    }
-
-    source.connect(processor)
-    processor.connect(context.destination)
-    setRecording(true)
+  // Keep callback ref stable to avoid recreating worklet on callback change
+  const onAudioDataRef = useRef(onAudioData)
+  useEffect(() => {
+    onAudioDataRef.current = onAudioData
   }, [onAudioData])
 
-  const stop = useCallback(() => {
-    processorRef.current?.disconnect()
-    contextRef.current?.close()
-    mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
-    setRecording(false)
+  const start = useCallback(async () => {
+    setStatus('requesting')
+    setError(null)
+
+    let stream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      })
+    } catch (err) {
+      const msg =
+        err.name === 'NotAllowedError'
+          ? 'micPermissionDenied'
+          : err.name === 'NotFoundError' || err.name === 'OverconstrainedError'
+            ? 'micNotFound'
+            : 'micError'
+      setError(msg)
+      setStatus('error')
+      return
+    }
+
+    mediaStreamRef.current = stream
+
+    try {
+      const ctx = new AudioContext({ sampleRate: 16000 })
+      audioContextRef.current = ctx
+
+      await ctx.audioWorklet.addModule('/pcm-processor.js')
+
+      const workletNode = new AudioWorkletNode(ctx, 'pcm-processor')
+      workletNodeRef.current = workletNode
+
+      workletNode.port.onmessage = (e) => {
+        if (e.data.type === 'pcm') {
+          onAudioDataRef.current?.(e.data.buffer)
+        } else if (e.data.type === 'level') {
+          levelRef.current = e.data.value
+        }
+      }
+
+      const source = ctx.createMediaStreamSource(stream)
+      source.connect(workletNode)
+      // Connect to destination to keep the audio graph alive (worklet outputs silence)
+      workletNode.connect(ctx.destination)
+
+      setStatus('recording')
+    } catch (err) {
+      console.error('AudioWorklet setup failed:', err)
+      stream.getTracks().forEach((t) => t.stop())
+      setError('micError')
+      setStatus('error')
+    }
   }, [])
 
-  return { recording, start, stop }
+  const stop = useCallback(() => {
+    workletNodeRef.current?.disconnect()
+    workletNodeRef.current = null
+
+    audioContextRef.current?.close()
+    audioContextRef.current = null
+
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
+    mediaStreamRef.current = null
+
+    levelRef.current = 0
+    setStatus('idle')
+    setError(null)
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      workletNodeRef.current?.disconnect()
+      audioContextRef.current?.close()
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop())
+    }
+  }, [])
+
+  return {
+    status,
+    recording: status === 'recording',
+    level: levelRef,
+    start,
+    stop,
+    error,
+  }
 }
