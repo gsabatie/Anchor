@@ -15,6 +15,8 @@ i18n.use(initReactI18next).init({
         anchor: 'Anchor',
         anxietyLevel: 'Anxiety level: {{level}}/10',
         anxietyReport: 'My anxiety level is at {{level}}/10',
+        anxietyReport_btn: 'Report to Anchor',
+        anxietyReported: 'Reported',
         timerActive: 'ERP Timer active',
         stopRecording: 'Stop',
         startRecording: 'Speak',

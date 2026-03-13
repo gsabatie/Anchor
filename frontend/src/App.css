@@ -270,6 +270,126 @@
   transform: scale(1);
 }
 
+/* Anxiety Meter */
+.anxiety-meter {
+  margin: 20px 0;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.anxiety-meter__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.anxiety-meter__label {
+  font-weight: 600;
+  font-size: 0.95em;
+  color: #333;
+}
+
+.anxiety-meter__value {
+  font-size: 2em;
+  font-weight: 700;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.anxiety-meter__track-wrapper {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+/* Custom range slider */
+.anxiety-meter__slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(
+    to right,
+    var(--meter-color) 0%,
+    var(--meter-color) var(--meter-pct),
+    #ddd var(--meter-pct),
+    #ddd 100%
+  );
+  outline: none;
+  cursor: pointer;
+}
+
+.anxiety-meter__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--meter-color);
+  border: 3px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  cursor: grab;
+  transition: transform 0.15s ease;
+}
+
+.anxiety-meter__slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.15);
+}
+
+.anxiety-meter__slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--meter-color);
+  border: 3px solid white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  cursor: grab;
+}
+
+.anxiety-meter__ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding: 0 2px;
+}
+
+.anxiety-meter__tick {
+  font-size: 0.7em;
+  color: #999;
+  width: 16px;
+  text-align: center;
+}
+
+.anxiety-meter__btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.anxiety-meter__btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.anxiety-meter__btn.confirmed {
+  background: #6bcf7f;
+  box-shadow: none;
+  cursor: default;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
