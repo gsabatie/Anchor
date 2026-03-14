@@ -99,7 +99,7 @@ def _build_instruction(callback_context: CallbackContext) -> str:
 # Agent definition
 # ---------------------------------------------------------------------------
 anchor_agent = LlmAgent(
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     name="anchor",
     description="ERP therapy companion agent for OCD support",
     instruction=_build_instruction,

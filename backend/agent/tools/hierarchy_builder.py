@@ -12,7 +12,7 @@ from services.firestore import get_firestore_client
 logger = logging.getLogger(__name__)
 
 MAX_DESCRIPTION_LENGTH = 2000
-MODEL = "gemini-2.0-flash"
+MODEL = "gemini-2.5-flash"
 FIRESTORE_COLLECTION = "hierarchies"
 
 _GENERATION_PROMPT = """\

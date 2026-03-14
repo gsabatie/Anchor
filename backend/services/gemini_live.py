@@ -72,7 +72,19 @@ TOOL_DECLARATIONS = [
             type="OBJECT",
             properties={
                 "action": types.Schema(type="STRING", description="Action: start_session | log_level | end_session | get_history"),
-                "session_data": types.Schema(type="OBJECT", description="Session data dict"),
+                "session_data": types.Schema(
+                    type="OBJECT",
+                    description="Session data payload",
+                    properties={
+                        "user_id": types.Schema(type="STRING", description="User identifier"),
+                        "session_id": types.Schema(type="STRING", description="Session identifier"),
+                        "level": types.Schema(type="INTEGER", description="Exposure level"),
+                        "anxiety_peak": types.Schema(type="INTEGER", description="Peak anxiety 0-10"),
+                        "resistance": types.Schema(type="BOOLEAN", description="Whether the user resisted the compulsion"),
+                        "toc_type": types.Schema(type="STRING", description="OCD category"),
+                        "toc_description": types.Schema(type="STRING", description="OCD description"),
+                    },
+                ),
             },
             required=["action", "session_data"],
         ),
@@ -157,7 +169,7 @@ class GeminiLiveSession:
 
         try:
             await self.session.send_realtime_input(
-                audio=types.Blob(data=audio_data, mime_type="audio/pcm;rate=16000")
+                media=types.Blob(data=audio_data, mime_type="audio/pcm;rate=16000")
             )
         except Exception as e:
             logger.error(f"Error sending audio to Gemini Live: {e}")
@@ -174,7 +186,8 @@ class GeminiLiveSession:
 
         try:
             await self.session.send_client_content(
-                turns=types.Content(role="user", parts=[types.Part(text=text)])
+                turns=types.Content(role="user", parts=[types.Part(text=text)]),
+                turn_complete=True,
             )
         except Exception as e:
             logger.error(f"Error sending text to Gemini Live: {e}")
@@ -184,13 +197,17 @@ class GeminiLiveSession:
         """Background loop that receives from Gemini and queues processed messages."""
         try:
             async for response in self.session.receive():
-                messages = await self._process_response(response)
-                for msg in messages:
-                    await self._response_queue.put(msg)
+                try:
+                    messages = await self._process_response(response)
+                    for msg in messages:
+                        await self._response_queue.put(msg)
+                except Exception as e:
+                    logger.error(f"Error processing response: {e}", exc_info=True)
         except asyncio.CancelledError:
             logger.debug("Receive loop cancelled")
         except Exception as e:
             logger.error(f"Error in receive loop: {e}")
+            self._connected = False
             await self._response_queue.put({"type": "error", "message": str(e)})
 
     async def receive_responses(self) -> AsyncGenerator[dict, None]:
@@ -251,13 +268,20 @@ class GeminiLiveSession:
 
                 result = await self._execute_tool(tool_name, tool_args)
 
+                # Build a lightweight response for Gemini (strip large blobs)
+                gemini_response = {
+                    k: v for k, v in result.items()
+                    if k not in ("image_base64",)
+                }
+
                 # Send tool result back to Gemini
                 try:
                     await self.session.send_tool_response(
                         function_responses=[
                             types.FunctionResponse(
+                                id=fc.id,
                                 name=tool_name,
-                                response=result,
+                                response=gemini_response,
                             )
                         ]
                     )
@@ -284,7 +308,7 @@ class GeminiLiveSession:
         return messages
 
     async def _execute_tool(self, tool_name: str, args: dict) -> dict:
-        """Execute an ADK tool by name.
+        """Execute an ADK tool by name with a timeout.
 
         Args:
             tool_name: Tool function name.
@@ -299,11 +323,19 @@ class GeminiLiveSession:
             return {"error": f"Unknown tool: {tool_name}"}
 
         try:
-            # Tools are sync functions, run in executor to avoid blocking
+            # Tools are sync functions, run in executor to avoid blocking.
+            # Timeout prevents the Gemini connection from dropping while
+            # waiting for slow external services (Vertex AI, Firestore).
             loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(None, lambda: tool_fn(**args))
-            logger.info(f"Tool {tool_name} result: {result}")
+            result = await asyncio.wait_for(
+                loop.run_in_executor(None, lambda: tool_fn(**args)),
+                timeout=15.0,
+            )
+            logger.info(f"Tool {tool_name} completed")
             return result
+        except asyncio.TimeoutError:
+            logger.error(f"Tool {tool_name} timed out after 15s")
+            return {"error": f"Tool {tool_name} timed out"}
         except Exception as e:
             logger.error(f"Tool {tool_name} failed: {e}")
             return {"error": str(e)}

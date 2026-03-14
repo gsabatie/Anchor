@@ -12,7 +12,7 @@ variable "region" {
 variable "gemini_model" {
   description = "Gemini model ID for live audio"
   type        = string
-  default     = "gemini-2.0-flash"
+  default     = "gemini-2.5-flash-native-audio-preview-12-2025"
 }
 
 variable "imagen_model" {
