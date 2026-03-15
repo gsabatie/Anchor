@@ -11,7 +11,7 @@
   width: min(280px, 80%);
   height: 8px;
   border-radius: 4px;
-  background: var(--color-ground-300);
+  background: var(--color-ground-200);
   overflow: hidden;
   opacity: 0;
   transition: opacity 0.3s ease;
@@ -29,16 +29,16 @@
 
 .audio-capture__btn {
   position: relative;
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
+  width: 84px;
+  height: 84px;
+  border-radius: var(--radius-pill);
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(74, 124, 138, 0.3);
+  box-shadow: var(--shadow-glow);
   background: var(--color-anchor-400);
   color: white;
 }
@@ -52,7 +52,7 @@
 
 .audio-capture__btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(74, 124, 138, 0.4);
+  box-shadow: 0 6px 24px rgba(155, 132, 191, 0.4);
 }
 
 .audio-capture__btn:active:not(:disabled) {
@@ -70,22 +70,23 @@
   cursor: wait;
 }
 
-/* Recording state — stays in brand color (blue-green), NOT red */
+/* Recording state — sage green, calm and grounding */
 .audio-capture__btn--recording {
-  background: var(--color-anchor-500);
-  box-shadow: 0 4px 15px rgba(58, 100, 116, 0.35);
+  background: var(--color-sage-500);
+  box-shadow: 0 4px 15px rgba(127, 166, 118, 0.35);
+  animation: pulse-ring 3.5s ease-out infinite;
 }
 
 .audio-capture__btn--recording:hover:not(:disabled) {
-  box-shadow: 0 6px 20px rgba(58, 100, 116, 0.45);
+  box-shadow: 0 6px 20px rgba(127, 166, 118, 0.45);
 }
 
 .audio-capture__btn--recording::before {
   content: '';
   position: absolute;
   inset: -4px;
-  border-radius: 50%;
-  border: 2px solid var(--color-anchor-400);
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--color-sage-500);
   animation: audio-capture-pulse 2.5s ease-in-out infinite;
 }
 
@@ -112,7 +113,14 @@
   max-width: 300px;
 }
 
-/* Gentler, slower pulse — less anxiety-inducing */
+/* Breathing pulse ring — sage green, calming 3.5s cycle */
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(127, 166, 118, 0.4); }
+  70%  { box-shadow: 0 0 0 15px rgba(127, 166, 118, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(127, 166, 118, 0); }
+}
+
+/* Gentler, slower pulse ring border — less anxiety-inducing */
 @keyframes audio-capture-pulse {
   0% {
     transform: scale(1);

@@ -11,11 +11,11 @@ const PHASE_LABELS = {
 }
 
 const PHASE_COLORS = {
-  opening: '#5B9B6E',
-  rising: '#A89A5A',
-  peak: '#B85050',
-  falling: '#4A7C8A',
-  closing: '#5B9B6E',
+  opening: '#8BBF9A',
+  rising: '#C9B87A',
+  peak: '#CF8E8E',
+  falling: '#9B84BF',
+  closing: '#8BBF9A',
 }
 
 function formatTime(seconds) {

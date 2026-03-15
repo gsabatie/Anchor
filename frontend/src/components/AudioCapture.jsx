@@ -63,9 +63,9 @@ export default function AudioCapture({ sendAudio, muted }) {
 
       if (barWidth > 0) {
         const gradient = ctx.createLinearGradient(0, 0, w, 0)
-        gradient.addColorStop(0, '#5B9B6E')
-        gradient.addColorStop(0.6, '#A89A5A')
-        gradient.addColorStop(1, '#B85050')
+        gradient.addColorStop(0, '#8BBF9A')
+        gradient.addColorStop(0.6, '#C9B87A')
+        gradient.addColorStop(1, '#CF8E8E')
 
         ctx.fillStyle = gradient
         ctx.beginPath()

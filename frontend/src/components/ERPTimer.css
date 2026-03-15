@@ -1,9 +1,12 @@
 .erp-timer {
   margin: 0;
   padding: 24px;
-  background: var(--color-ground-100);
-  border-radius: 12px;
-  border: 1px solid var(--color-ground-300);
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -12,8 +15,8 @@
 }
 
 .erp-timer--finished {
-  border-color: var(--color-success);
-  background: linear-gradient(135deg, #f0fff4 0%, var(--color-ground-100) 100%);
+  border-color: rgba(127, 166, 118, 0.4);
+  background: linear-gradient(135deg, rgba(238, 243, 236, 0.85) 0%, rgba(255, 255, 255, 0.65) 100%);
 }
 
 .erp-timer__header {
@@ -54,7 +57,7 @@
 
 .erp-timer__ring-bg {
   fill: none;
-  stroke: var(--color-ground-300);
+  stroke: var(--color-ground-200);
   stroke-width: 8;
 }
 
@@ -90,14 +93,17 @@
   transition: color 0.4s ease;
 }
 
-/* Coaching message bubble — prominent, not subtle */
+/* Coaching message bubble — glass effect with lavender accent */
 .erp-timer__coaching {
   width: 100%;
   padding: 16px 20px;
-  background: white;
-  border-radius: 10px;
-  border: 1px solid var(--color-ground-300);
-  border-left: 3px solid var(--color-anchor-400);
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-left: 4px solid var(--color-anchor-400);
+  box-shadow: var(--shadow-sm);
   opacity: 0;
   transform: translateY(6px);
   transition: opacity 0.3s ease, transform 0.3s ease;
@@ -124,7 +130,7 @@
   position: relative;
   width: 100%;
   height: 6px;
-  background: var(--color-ground-300);
+  background: var(--color-ground-200);
   border-radius: 3px;
   overflow: visible;
 }

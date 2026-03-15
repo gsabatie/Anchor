@@ -1,30 +1,64 @@
 :root {
-  /* Calm Depth palette — calming blue-greens for therapeutic context */
-  --color-ground-100: #F7F6F3;
-  --color-ground-200: #EDECEA;
-  --color-ground-300: #DDDBD7;
-  --color-ground-600: #6B6A67;
-  --color-ground-900: #2C2B29;
+  /* Safe Harbor pastel palette */
 
-  --color-anchor-400: #4A7C8A;
-  --color-anchor-500: #3A6474;
-  --color-anchor-100: #EAF2F5;
+  /* Ground — warm parchment neutrals */
+  --color-ground-50:  #FDFBF9;
+  --color-ground-100: #F8F5F1;
+  --color-ground-200: #F0EBE4;
+  --color-ground-300: #E2DCD4;
+  --color-ground-600: #8A8279;
+  --color-ground-900: #3D3833;
 
-  --color-calm:    #5B9B6E;
-  --color-mild:    #A89A5A;
-  --color-high:    #C47840;
-  --color-peak:    #B85050;
+  /* Anchor — lavender */
+  --color-anchor-100: #F0ECF6;
+  --color-anchor-200: #DDD5EA;
+  --color-anchor-300: #C4B6D9;
+  --color-anchor-400: #9B84BF;
+  --color-anchor-500: #7E69A3;
 
-  --color-success: #5B9B6E;
-  --color-warning: #A89A5A;
-  --color-danger:  #B85050;
-  --color-crisis:  #7B2D2D;
+  /* Sage — soft green */
+  --color-sage-100: #EEF3EC;
+  --color-sage-300: #B8CDB2;
+  --color-sage-500: #7FA676;
+
+  /* Blush — warm rose */
+  --color-blush-100: #FBF0EE;
+  --color-blush-300: #E8C5BF;
+  --color-blush-500: #C4918A;
+
+  /* Anxiety scale */
+  --color-calm:  #8BBF9A;
+  --color-mild:  #C9B87A;
+  --color-high:  #D4A07A;
+  --color-peak:  #CF8E8E;
+  --color-crisis: #A85656;
+
+  /* Semantic aliases */
+  --color-success: var(--color-sage-500);
+  --color-warning: var(--color-mild);
+  --color-danger:  var(--color-peak);
+
+  /* Shadows */
+  --shadow-sm:   0 2px 8px rgba(61, 56, 51, 0.06);
+  --shadow-md:   0 4px 16px rgba(61, 56, 51, 0.08);
+  --shadow-lg:   0 8px 32px rgba(61, 56, 51, 0.12);
+  --shadow-glow: 0 0 20px rgba(155, 132, 191, 0.25);
+
+  /* Radii */
+  --radius-sm:   12px;
+  --radius-md:   20px;
+  --radius-lg:   28px;
+  --radius-pill: 9999px;
+
+  /* Easing */
+  --ease-soft:   cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color: var(--color-ground-900);
-  background-color: var(--color-ground-100);
+  background-color: var(--color-ground-50);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -43,10 +77,9 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  background: radial-gradient(ellipse at 50% 30%, rgba(240, 236, 246, 0.5) 0%, var(--color-ground-50) 70%);
 }
 
 h1 {
@@ -55,7 +88,7 @@ h1 {
 }
 
 button {
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
   font-size: 1em;
@@ -71,8 +104,50 @@ button:hover {
 }
 button:focus,
 button:focus-visible {
-  outline: 3px solid var(--color-anchor-400);
+  outline: 3px solid var(--color-anchor-300);
   outline-offset: 2px;
+}
+
+/* Glass card utility */
+.glass-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+}
+
+@supports not (backdrop-filter: blur(20px)) {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.85);
+  }
+}
+
+/* Aurora ambient background animation */
+@media (prefers-reduced-motion: no-preference) {
+  .app::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(155, 132, 191, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(127, 166, 118, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 80%, rgba(196, 145, 138, 0.08) 0%, transparent 50%);
+    animation: aurora 25s ease-in-out infinite alternate;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes aurora {
+    0%   { transform: translate(0, 0) rotate(0deg); }
+    33%  { transform: translate(2%, -1%) rotate(1deg); }
+    66%  { transform: translate(-1%, 2%) rotate(-1deg); }
+    100% { transform: translate(1%, -2%) rotate(0.5deg); }
+  }
 }
 
 /* Protect all animations for users with vestibular disorders */

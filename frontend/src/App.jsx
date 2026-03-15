@@ -118,6 +118,7 @@ function App() {
 
         {!sessionActive ? (
           <div className="welcome">
+            <div className="welcome__deco" aria-hidden="true" />
             <h2 className="welcome__heading">{t('welcomeHeading')}</h2>
             <p className="welcome__body">{t('welcomeBody')}</p>
             <button className="start-btn" onClick={handleStartSession}>
