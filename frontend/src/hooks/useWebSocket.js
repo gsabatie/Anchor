@@ -4,8 +4,8 @@ const WS_BASE = import.meta.env.VITE_BACKEND_WS_URL
   || (import.meta.env.DEV ? 'ws://localhost:8000' : `wss://${window.location.host}`)
 const WS_URL = `${WS_BASE}/ws/session`
 
-// Gemini Live outputs PCM16 at 24kHz
-const PLAYBACK_SAMPLE_RATE = 24000
+// Default Gemini Live output rate; overridden by mime_type when available
+const DEFAULT_PLAYBACK_RATE = 24000
 
 const MAX_RECONNECT_ATTEMPTS = 10
 const MAX_RECONNECT_DELAY_MS = 30000
@@ -14,9 +14,20 @@ const PLAYBACK_MAX_DRIFT_S = 2.0
 // Close codes that should not trigger reconnection
 const PERMANENT_CLOSE_CODES = [4001, 4003, 4004]
 
+/**
+ * Parse sample rate from a mime_type like "audio/pcm;rate=24000".
+ * Returns DEFAULT_PLAYBACK_RATE when parsing fails.
+ */
+function parseSampleRate(mime) {
+  if (!mime) return DEFAULT_PLAYBACK_RATE
+  const match = mime.match(/rate=(\d+)/)
+  return match ? parseInt(match[1], 10) : DEFAULT_PLAYBACK_RATE
+}
+
 export function useWebSocket(token) {
   const wsRef = useRef(null)
   const audioCtxRef = useRef(null)
+  const gainNodeRef = useRef(null)
   const nextPlayTimeRef = useRef(0)
   const reconnectAttemptsRef = useRef(0)
   const reconnectTimerRef = useRef(null)
@@ -31,17 +42,43 @@ export function useWebSocket(token) {
   const [crisisAlert, setCrisisAlert] = useState(null)
   const [reassuranceViolation, setReassuranceViolation] = useState(null)
 
-  const getAudioContext = useCallback(() => {
-    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
-      audioCtxRef.current = new AudioContext({ sampleRate: PLAYBACK_SAMPLE_RATE })
-      nextPlayTimeRef.current = 0
+  /**
+   * Get or create the playback AudioContext.
+   * Rate is set on first audio chunk (may differ per model).
+   */
+  const getAudioContext = useCallback((sampleRate = DEFAULT_PLAYBACK_RATE) => {
+    if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+      return audioCtxRef.current
     }
-    return audioCtxRef.current
+    const ctx = new AudioContext({ sampleRate })
+    audioCtxRef.current = ctx
+
+    // Master volume — gain node sits between sources and destination
+    const gain = ctx.createGain()
+    gain.gain.value = 1.0
+    gain.connect(ctx.destination)
+    gainNodeRef.current = gain
+
+    nextPlayTimeRef.current = 0
+    return ctx
   }, [])
 
-  const playPcmAudio = useCallback((base64Data) => {
+  /**
+   * Ensure the AudioContext is running.
+   * Must be called from a user gesture (click handler) to satisfy
+   * autoplay policies on Safari/Chrome.
+   */
+  const ensureAudioResumed = useCallback(() => {
+    const ctx = audioCtxRef.current
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume()
+    }
+  }, [])
+
+  const playPcmAudio = useCallback((base64Data, mimeType) => {
     try {
-      const ctx = getAudioContext()
+      const sampleRate = parseSampleRate(mimeType)
+      const ctx = getAudioContext(sampleRate)
       if (ctx.state === 'suspended') {
         ctx.resume()
       }
@@ -61,13 +98,15 @@ export function useWebSocket(token) {
       }
 
       // Create audio buffer and schedule playback
-      const audioBuffer = ctx.createBuffer(1, float32.length, PLAYBACK_SAMPLE_RATE)
+      const audioBuffer = ctx.createBuffer(1, float32.length, sampleRate)
       audioBuffer.getChannelData(0).set(float32)
 
       const source = ctx.createBufferSource()
       source.buffer = audioBuffer
 
-      source.connect(ctx.destination)
+      // Route through gain node for volume control
+      const dest = gainNodeRef.current || ctx.destination
+      source.connect(dest)
 
       // Reset scheduling if drift exceeds threshold (e.g. after network stall)
       const now = ctx.currentTime
@@ -204,7 +243,7 @@ export function useWebSocket(token) {
           case 'audio':
             setIsThinking(false)
             if (msg.data) {
-              playPcmAudio(msg.data)
+              playPcmAudio(msg.data, msg.mime_type)
             }
             break
 
@@ -373,5 +412,6 @@ export function useWebSocket(token) {
     sendAudio,
     sendMessage,
     sendControl,
+    ensureAudioResumed,
   }
 }

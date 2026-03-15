@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import AudioCapture from './components/AudioCapture'
 import ExposureImage from './components/ExposureImage'
@@ -8,10 +8,18 @@ import SessionHistory from './components/SessionHistory'
 import { useWebSocket } from './hooks/useWebSocket'
 import './App.css'
 
+const STATUS_KEYS = {
+  disconnected: 'statusDisconnected',
+  connecting: 'statusConnecting',
+  connected: 'statusConnected',
+  reconnecting: 'statusReconnecting',
+}
+
 function App() {
   const { t } = useTranslation()
   const [sessionActive, setSessionActive] = useState(false)
   const [showEndConfirm, setShowEndConfirm] = useState(false)
+  const transcriptEndRef = useRef(null)
   const token = import.meta.env.VITE_WS_AUTH_TOKEN || ''
 
   const {
@@ -26,11 +34,28 @@ function App() {
     isThinking,
     crisisAlert,
     reassuranceViolation,
+    ensureAudioResumed,
   } = useWebSocket(sessionActive ? token : null)
 
+  // P4 — Auto-scroll transcript when new messages arrive
+  useEffect(() => {
+    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [transcript, isThinking])
+
+  // P5 — Escape key closes the confirm dialog
+  useEffect(() => {
+    if (!showEndConfirm) return
+    const handleKey = (e) => {
+      if (e.key === 'Escape') setShowEndConfirm(false)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [showEndConfirm])
+
   const handleStartSession = useCallback(() => {
+    ensureAudioResumed()
     setSessionActive(true)
-  }, [])
+  }, [ensureAudioResumed])
 
   const handleEndSession = useCallback(() => {
     setShowEndConfirm(true)
@@ -50,21 +75,29 @@ function App() {
     sendMessage(t('anxietyReport', { level }))
   }, [sendMessage, t])
 
+  const roleLabel = (role) => {
+    if (role === 'user') return t('you')
+    if (role === 'system') return t('system')
+    return t('anchor')
+  }
+
   return (
     <div className="app">
       <header>
         <h1>{t('title')}</h1>
         <p>{t('subtitle')}</p>
         <div className="status-indicator">
-          <span className={`status-dot ${status}`}></span>
-          <span className="status-text">{status}</span>
+          <span className={`status-dot ${status}`} />
+          <span className="status-text">
+            {t(STATUS_KEYS[status] || 'statusDisconnected')}
+          </span>
         </div>
       </header>
 
       <main>
         {crisisAlert && (
           <div className="crisis-banner" role="alert" aria-live="assertive">
-            <span className="crisis-banner__icon" aria-hidden="true">🆘</span>
+            <span className="crisis-banner__icon" aria-hidden="true">&#x1F198;</span>
             <p>{crisisAlert.redirect}</p>
           </div>
         )}
@@ -82,22 +115,26 @@ function App() {
         )}
 
         {!sessionActive ? (
-          <button className="start-btn" onClick={handleStartSession}>
-            {t('startSession')}
-          </button>
+          <div className="welcome">
+            <h2 className="welcome__heading">{t('welcomeHeading')}</h2>
+            <p className="welcome__body">{t('welcomeBody')}</p>
+            <button className="start-btn" onClick={handleStartSession}>
+              {t('startSession')}
+            </button>
+            <p className="welcome__note">{t('welcomeNote')}</p>
+          </div>
         ) : (
           <div className="session">
-            {/* Order: Image → Timer → Meter → Audio → Transcript (via CSS order) */}
             <ExposureImage data={exposureImage} />
             <ERPTimer data={timerData} />
             <AnxietyMeter onReport={handleAnxietyReport} />
             <AudioCapture sendAudio={sendAudio} />
 
-            <div className="transcript-panel">
+            <div className="transcript-panel" aria-live="polite">
               {transcript && transcript.length > 0 ? (
                 transcript.map((msg, idx) => (
                   <div key={idx} className={`message ${msg.role}`}>
-                    <span className="role">{msg.role === 'user' ? t('you') : t('anchor')}</span>
+                    <span className="role">{roleLabel(msg.role)}</span>
                     <p>{msg.content}</p>
                   </div>
                 ))
@@ -111,10 +148,11 @@ function App() {
                 <div className="message assistant thinking">
                   <span className="role">{t('anchor')}</span>
                   <div className="thinking-dots">
-                    <span></span><span></span><span></span>
+                    <span /><span /><span />
                   </div>
                 </div>
               )}
+              <div ref={transcriptEndRef} />
             </div>
 
             <button className="end-btn" onClick={handleEndSession}>
@@ -128,14 +166,20 @@ function App() {
 
       {showEndConfirm && (
         <div className="confirm-overlay" onClick={cancelEndSession}>
-          <div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title" onClick={e => e.stopPropagation()}>
+          <div
+            className="confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-title"
+            onClick={e => e.stopPropagation()}
+          >
             <h2 id="confirm-title">{t('endSessionConfirmTitle')}</h2>
             <p>{t('endSessionConfirmBody')}</p>
             <div className="confirm-dialog__actions">
               <button className="confirm-dialog__cancel" onClick={cancelEndSession}>
                 {t('endSessionCancel')}
               </button>
-              <button className="confirm-dialog__confirm" onClick={confirmEndSession}>
+              <button className="confirm-dialog__confirm" onClick={confirmEndSession} autoFocus>
                 {t('endSessionConfirm')}
               </button>
             </div>
