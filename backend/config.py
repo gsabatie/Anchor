@@ -8,6 +8,9 @@ GEMINI_LIVE_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-native-audio-lat
 # Gemini text (structured generation — hierarchy builder, etc.)
 GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "gemini-2.5-flash")
 
+# Gemini Pro (high-quality generation — hierarchy builder uses thinking mode)
+GEMINI_PRO_MODEL = os.getenv("GEMINI_PRO_MODEL", "gemini-2.5-pro")
+
 # Vertex AI Imagen 3
 IMAGEN_MODEL = os.getenv("IMAGEN_MODEL", "imagegeneration@006")
 

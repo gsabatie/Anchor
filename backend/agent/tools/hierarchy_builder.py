@@ -12,7 +12,7 @@ from services.firestore import get_firestore_client
 
 logger = logging.getLogger(__name__)
 
-from config import GEMINI_TEXT_MODEL
+from config import GEMINI_PRO_MODEL
 
 MAX_DESCRIPTION_LENGTH = 2000
 FIRESTORE_COLLECTION = "hierarchies"
@@ -29,22 +29,31 @@ def _get_client():
     return _genai_client
 
 _GENERATION_PROMPT = """\
-You are an ERP (Exposure and Response Prevention) therapy specialist \
-for OCD (Obsessive-Compulsive Disorder).
+Tu es un spécialiste en thérapie ERP (Exposition avec Prévention de la Réponse) \
+pour les TOC (Troubles Obsessionnels Compulsifs).
 
-The patient describes their OCD as follows:
-- OCD type: {toc_type}
-- Description: {toc_description}
+Le patient décrit son TOC ainsi :
+- Type de TOC : {toc_type}
+- Description : {toc_description}
 
-Generate a graduated exposure hierarchy of 10 levels (1 = least anxiety-inducing, \
-10 = most anxiety-inducing). Each level must describe a concrete, realistic \
-exposure situation specific to the described OCD.
+Génère une hiérarchie graduée d'exposition de 10 niveaux (1 = le moins anxiogène, \
+10 = le plus anxiogène). Chaque niveau doit décrire une situation d'exposition \
+concrète, réaliste et spécifique au TOC décrit.
 
-Rules:
-- Situations must be progressive and clinically relevant.
-- anxiety_estimate must match the level number.
-- Descriptions must be in French, concise (1-2 sentences).
-- Never include reassuring content in the descriptions.
+Exemple de niveau bien formulé :
+{{ "level": 3, "situation": "Toucher la poignée d'une porte de supermarché avec \
+le bout d'un doigt puis ne pas se laver les mains pendant 10 minutes.", \
+"anxiety_estimate": 3 }}
+
+Règles :
+- Les situations doivent être progressives et cliniquement pertinentes.
+- anxiety_estimate peut varier de ±1 par rapport au numéro du niveau.
+- Les descriptions doivent être en français, concrètes et concises (1-2 phrases).
+- Utilise des références culturelles françaises (transports en commun, pharmacie, \
+boulangerie, etc.) plutôt que des références américaines.
+- Ne jamais inclure de contenu rassurant dans les descriptions.
+- Chaque situation doit impliquer une action spécifique que l'utilisateur peut \
+s'imaginer faire, pas juste une peur abstraite.
 """
 
 _LEVEL_SCHEMA = types.Schema(
@@ -79,7 +88,26 @@ def hierarchy_builder(toc_description: str, toc_type: str) -> dict:
     if not toc_type.strip():
         return {"error": "toc_type is required"}
 
-    # --- Generate hierarchy via Gemini ---
+    # --- Check Firestore cache for existing hierarchy ---
+    toc_type_normalized = toc_type.strip().lower()
+    try:
+        db = get_firestore_client()
+        existing = (
+            db.collection(FIRESTORE_COLLECTION)
+            .where("toc_type", "==", toc_type_normalized)
+            .order_by("created_at", direction="DESCENDING")
+            .limit(1)
+            .get()
+        )
+        if existing:
+            doc = existing[0]
+            data = doc.to_dict()
+            logger.info("Returning cached hierarchy %s for toc_type=%s", doc.id, toc_type_normalized)
+            return {"levels": data["levels"], "hierarchy_id": doc.id, "cached": True}
+    except Exception as exc:
+        logger.warning("Firestore cache lookup failed (non-fatal): %s", exc)
+
+    # --- Generate hierarchy via Gemini Pro with thinking ---
     prompt = _GENERATION_PROMPT.format(
         toc_type=toc_type,
         toc_description=toc_description,
@@ -89,12 +117,15 @@ def hierarchy_builder(toc_description: str, toc_type: str) -> dict:
         try:
             client = _get_client()
             response = client.models.generate_content(
-                model=GEMINI_TEXT_MODEL,
+                model=GEMINI_PRO_MODEL,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=_RESPONSE_SCHEMA,
                     temperature=0.7,
+                    thinking_config=types.ThinkingConfig(
+                        thinking_budget=4096,
+                    ),
                     safety_settings=[
                         types.SafetySetting(
                             category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
@@ -126,7 +157,7 @@ def hierarchy_builder(toc_description: str, toc_type: str) -> dict:
         db = get_firestore_client()
         doc_ref = db.collection(FIRESTORE_COLLECTION).document()
         doc_ref.set({
-            "toc_type": toc_type,
+            "toc_type": toc_type_normalized,
             "toc_description": toc_description,
             "levels": levels,
             "created_at": datetime.now(timezone.utc),

@@ -52,44 +52,65 @@ TOOL_DECLARATIONS = [
     ),
     types.FunctionDeclaration(
         name="hierarchy_builder",
-        description="Build a personalized ERP exposure hierarchy (10 levels) based on the user's OCD description.",
+        description=(
+            "Build a personalized 10-level ERP exposure hierarchy. "
+            "Call this AFTER the intake conversation, once the user has described their OCD "
+            "and you have identified both the OCD type and at least one specific trigger. "
+            "Do NOT call during intake. Returns existing hierarchy from Firestore if one matches."
+        ),
         parameters=types.Schema(
             type="OBJECT",
             properties={
-                "toc_description": types.Schema(type="STRING", description="User's description of their OCD"),
-                "toc_type": types.Schema(type="STRING", description="Category of OCD (e.g. contamination, checking, intrusive thoughts)"),
+                "toc_description": types.Schema(type="STRING", description="User's detailed description of their OCD triggers and compulsions"),
+                "toc_type": types.Schema(type="STRING", description="Category: contamination, checking, intrusive_thoughts, symmetry, hoarding, or other"),
             },
             required=["toc_description", "toc_type"],
         ),
     ),
     types.FunctionDeclaration(
         name="image_generator",
-        description="Generate an exposure image for a specific hierarchy level using Imagen 3.",
+        description=(
+            "Generate an exposure image for a specific hierarchy level using Imagen 3. "
+            "Call this at the moment the user agrees to begin a specific exposure level, "
+            "BEFORE starting narration. This enables parallel image generation and audio narration. "
+            "Continue speaking while the image generates."
+        ),
         parameters=types.Schema(
             type="OBJECT",
             properties={
-                "situation": types.Schema(type="STRING", description="Description of the exposure situation"),
+                "situation": types.Schema(type="STRING", description="Concrete description of the exposure situation from the hierarchy"),
                 "level": types.Schema(type="INTEGER", description="Exposure level 1-10"),
-                "toc_type": types.Schema(type="STRING", description="Category of OCD"),
+                "toc_type": types.Schema(type="STRING", description="Category: contamination, checking, intrusive_thoughts, symmetry, hoarding, or other"),
             },
             required=["situation", "level", "toc_type"],
         ),
     ),
     types.FunctionDeclaration(
         name="erp_timer",
-        description="Start an ERP exposure timer for coaching the user through anxiety.",
+        description=(
+            "Start an ERP exposure timer with progressive coaching messages. "
+            "Call this ONLY AFTER the exposure image has been shown and the user has given "
+            "their first anxiety rating (0-10). Duration depends on level: "
+            "levels 1-3 = 10min, 4-6 = 20min, 7-9 = 30min, 10 = 40min."
+        ),
         parameters=types.Schema(
             type="OBJECT",
             properties={
-                "level": types.Schema(type="INTEGER", description="Current exposure level"),
-                "duration_minutes": types.Schema(type="INTEGER", description="Timer duration in minutes"),
+                "level": types.Schema(type="INTEGER", description="Current exposure level 1-10"),
+                "duration_minutes": types.Schema(type="INTEGER", description="Timer duration in minutes (10-40)"),
             },
             required=["level", "duration_minutes"],
         ),
     ),
     types.FunctionDeclaration(
         name="session_tracker",
-        description="Track session data in Firestore (start, log level, end, get history).",
+        description=(
+            "Manage ERP session lifecycle in Firestore. "
+            "Call 'start_session' at the beginning of each session. "
+            "Call 'log_level' after each exposure exercise completes (with anxiety_peak and resistance). "
+            "Call 'end_session' when the user wants to stop or the session closes naturally. "
+            "Call 'get_history' when the user asks about past sessions."
+        ),
         parameters=types.Schema(
             type="OBJECT",
             properties={
