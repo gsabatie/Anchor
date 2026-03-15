@@ -82,6 +82,12 @@ def hierarchy_builder(toc_description: str, toc_type: str) -> dict:
     Returns:
         A dict with 'levels': list of {level, situation, anxiety_estimate}.
     """
+    logger.info(
+        "hierarchy_builder called: toc_type=%s, description_length=%d chars",
+        toc_type,
+        len(toc_description),
+    )
+
     if len(toc_description) > MAX_DESCRIPTION_LENGTH:
         return {"error": f"Description too long ({len(toc_description)} chars). Max {MAX_DESCRIPTION_LENGTH}."}
 
@@ -102,12 +108,15 @@ def hierarchy_builder(toc_description: str, toc_type: str) -> dict:
         if existing:
             doc = existing[0]
             data = doc.to_dict()
-            logger.info("Returning cached hierarchy %s for toc_type=%s", doc.id, toc_type_normalized)
+            logger.info("Cache hit: returning hierarchy %s for toc_type=%s", doc.id, toc_type_normalized)
             return {"levels": data["levels"], "hierarchy_id": doc.id, "cached": True}
+        else:
+            logger.debug("Cache miss: no existing hierarchy for toc_type=%s", toc_type_normalized)
     except Exception as exc:
         logger.warning("Firestore cache lookup failed (non-fatal): %s", exc)
 
     # --- Generate hierarchy via Gemini Pro with thinking ---
+    logger.info("Generating new hierarchy with model=%s", GEMINI_PRO_MODEL)
     prompt = _GENERATION_PROMPT.format(
         toc_type=toc_type,
         toc_description=toc_description,
@@ -148,6 +157,8 @@ def hierarchy_builder(toc_description: str, toc_type: str) -> dict:
     if not isinstance(levels, list) or len(levels) != 10:
         return {"error": f"Expected 10 levels from Gemini, got {len(levels) if isinstance(levels, list) else type(levels).__name__}"}
 
+    logger.info("Hierarchy generated: %d levels for toc_type=%s", len(levels), toc_type_normalized)
+
     # Ensure levels are sorted by level number
     levels.sort(key=lambda l: l["level"])
 
@@ -163,6 +174,7 @@ def hierarchy_builder(toc_description: str, toc_type: str) -> dict:
             "created_at": datetime.now(timezone.utc),
         })
         hierarchy_id = doc_ref.id
+        logger.debug("Hierarchy persisted to Firestore: hierarchy_id=%s", hierarchy_id)
     except Exception as exc:
         logger.warning("Firestore persistence failed (non-fatal): %s", exc)
 

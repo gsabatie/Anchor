@@ -165,14 +165,18 @@ def crisis_guard(text: str) -> dict:
     if not text or not text.strip():
         return {"crisis_detected": False, "redirect": None, "matched_pattern": None}
 
+    logger.debug("crisis_guard check: text_length=%d chars", len(text))
+
     matched = _check_crisis_patterns(text)
 
     if matched:
         logger.critical("CRISIS language detected: %r", matched)
+        logger.warning("Crisis pattern matched — redirecting to emergency services (3114)")
         return {
             "crisis_detected": True,
             "redirect": CRISIS_REDIRECT,
             "matched_pattern": matched,
         }
 
+    logger.debug("crisis_guard: no crisis pattern detected")
     return {"crisis_detected": False, "redirect": None, "matched_pattern": None}

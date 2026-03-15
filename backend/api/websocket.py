@@ -32,12 +32,15 @@ AUDIO_RATE_LIMIT = 50  # max audio chunks per second per session
 def _validate_token(token: str | None) -> bool:
     """Validate the session token."""
     if not token:
+        logger.debug("Token validation failed: no token provided")
         return False
     expected = os.getenv("WS_AUTH_TOKEN")
     if not expected:
         logger.warning("WS_AUTH_TOKEN not configured — rejecting all connections")
         return False
-    return token == expected
+    valid = token == expected
+    logger.debug("Token validation: %s", "passed" if valid else "failed (token mismatch)")
+    return valid
 
 
 @ws_router.websocket("/ws/session")
@@ -61,6 +64,7 @@ async def session_ws(websocket: WebSocket):
             return
         _active_connections[client_ip] += 1
 
+    logger.info("WebSocket connection accepted from IP=%s", client_ip)
     await websocket.accept()
     gemini_session = None
     keepalive_task = None
@@ -70,6 +74,7 @@ async def session_ws(websocket: WebSocket):
         try:
             while True:
                 await asyncio.sleep(30)
+                logger.debug("Keepalive ping sent to IP=%s", client_ip)
                 await ws.send_json({"type": "ping"})
         except Exception:
             pass
@@ -91,7 +96,7 @@ async def session_ws(websocket: WebSocket):
         await websocket.send_json({
             "type": "connection",
             "status": "connected",
-            "message": "Hi, I'm Anchor. I'm here with you. How are you feeling right now?",
+            "message": "Bonjour, je suis Anchor. Je suis là avec toi. Comment tu te sens là, maintenant ?",
         })
 
         # Start keepalive background task
@@ -162,6 +167,12 @@ async def _receive_from_client(
             if "bytes" in message and message["bytes"]:
                 data = message["bytes"]
                 if len(data) > MAX_AUDIO_CHUNK_SIZE:
+                    logger.warning(
+                        "Audio chunk too large from IP=%s: %d bytes (max %d)",
+                        client_ip,
+                        len(data),
+                        MAX_AUDIO_CHUNK_SIZE,
+                    )
                     await websocket.send_json({
                         "type": "error",
                         "message": "Audio chunk too large",
@@ -179,10 +190,21 @@ async def _receive_from_client(
                     continue
                 audio_chunk_times.append(now)
 
+                logger.debug("Received audio chunk: size=%d bytes from IP=%s", len(data), client_ip)
                 try:
                     await gemini_session.send_audio(data)
+                except RuntimeError as e:
+                    logger.error("Gemini session dead, stopping audio forward: %s", e)
+                    return
                 except Exception as e:
-                    logger.error(f"Error sending audio to Gemini: {e}")
+                    # Connection dropped — wait for reconnection before retrying
+                    logger.warning("Audio send failed, waiting for reconnection: %s", e)
+                    try:
+                        await gemini_session._wait_for_connection(timeout=15.0)
+                    except RuntimeError:
+                        logger.error("Gemini session not recovered, stopping audio forward")
+                        return
+                    continue
 
             # Text data = JSON control/text messages
             elif "text" in message and message["text"]:
@@ -197,11 +219,24 @@ async def _receive_from_client(
                     # Text input from user
                     text = msg.get("content", "")
                     if text:
-                        await gemini_session.send_text(text)
+                        logger.debug("Received text message: length=%d chars from IP=%s", len(text), client_ip)
+                        try:
+                            await gemini_session.send_text(text)
+                        except RuntimeError as e:
+                            logger.error("Gemini session dead, stopping text forward: %s", e)
+                            return
+                        except Exception as e:
+                            logger.warning("Text send failed, waiting for reconnection: %s", e)
+                            try:
+                                await gemini_session._wait_for_connection(timeout=15.0)
+                            except RuntimeError:
+                                logger.error("Gemini session not recovered, stopping text forward")
+                                return
+                            continue
 
                 elif msg_type == "control":
                     action = msg.get("action")
-                    logger.debug(f"Control message: {action}")
+                    logger.debug("Received control message: action=%s from IP=%s", action, client_ip)
                     # Handle control actions (end_session, pause, etc.)
 
     except WebSocketDisconnect:
@@ -216,6 +251,13 @@ async def _send_to_client(
     try:
         async for response in gemini_session.receive_responses():
             try:
+                msg_type = response.get("type", "unknown")
+                if msg_type == "audio":
+                    logger.info("-> client: audio b64_len=%d", len(response.get("data", "")))
+                elif msg_type == "exposure_image":
+                    logger.info("-> client: exposure_image level=%s", response.get("level"))
+                else:
+                    logger.info("-> client: %s", msg_type)
                 await websocket.send_json(response)
             except Exception as e:
                 logger.error(f"Error sending to client: {e}")

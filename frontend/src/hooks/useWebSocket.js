@@ -218,11 +218,19 @@ export function useWebSocket(token) {
             break
 
           case 'user_transcript':
-            // Transcription of what the user said (for display)
-            setTranscript(prev => [
-              ...prev,
-              { role: 'user', content: msg.content }
-            ])
+            // Input transcription is used for crisis_guard on the backend.
+            // Not displayed — native-audio transcription is too noisy for UI.
+            break
+
+          case 'reconnecting':
+            // Gemini backend is reconnecting — show a transient status
+            setIsThinking(false)
+            setStatus('reconnecting')
+            break
+
+          case 'reconnected':
+            setStatus('connected')
+            setError(null)
             break
 
           case 'error':

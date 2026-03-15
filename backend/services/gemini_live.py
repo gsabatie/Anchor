@@ -151,6 +151,8 @@ class GeminiLiveSession:
         self.session = None
         self._ctx_manager = None  # store the async context manager
         self._connected = False
+        self._reconnect_event = asyncio.Event()
+        self._reconnect_event.set()  # not reconnecting initially
         self._response_queue: asyncio.Queue[dict] = asyncio.Queue()
         self._receive_task: asyncio.Task | None = None
         self.session_state = {
@@ -161,6 +163,7 @@ class GeminiLiveSession:
             "session_id": None,
         }
         self._image_cache: dict[int, dict] = {}
+        logger.info("GeminiLiveSession created: model=%s, api_version=%s", LIVE_MODEL, api_version)
 
     def _build_config(self) -> dict:
         """Build the LiveConnectConfig for Gemini Live."""
@@ -179,21 +182,12 @@ class GeminiLiveSession:
                 parts=[types.Part(text=SYSTEM_PROMPT)]
             ),
             "tools": [types.Tool(function_declarations=TOOL_DECLARATIONS)],
-            # Therapeutic context: allow discussions about anxiety/distress
-            "safety_settings": [
-                types.SafetySetting(
-                    category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                    threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                ),
-            ],
-            # Emotional awareness for therapeutic voice
-            "enable_affective_dialog": True,
-            # Long ERP sessions (20-40 min) benefit from context compression
-            "context_window_compression": True,
-            # VAD: automatic activity detection keeps default sensitivity.
-            # turn_coverage ensures the model waits for complete user utterances.
+            # VAD: low end-of-speech sensitivity so the model waits for
+            # anxious pauses (3-5s) without cutting the user off.
             "realtime_input_config": types.RealtimeInputConfig(
-                automatic_activity_detection=True,
+                automatic_activity_detection=types.AutomaticActivityDetection(
+                    end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_LOW,
+                ),
             ),
         }
 
@@ -201,28 +195,57 @@ class GeminiLiveSession:
         # gives us the text equivalent for logging and reassurance checking.
         if is_native_audio:
             config["output_audio_transcription"] = types.AudioTranscriptionConfig()
-            # Log what the user says for session tracking and clinical records
             config["input_audio_transcription"] = types.AudioTranscriptionConfig()
 
+        logger.info(
+            "_build_config: modalities=%s, voice=Enceladus, VAD=END_SENSITIVITY_LOW, "
+            "native_audio=%s, transcription=%s",
+            config["response_modalities"],
+            is_native_audio,
+            is_native_audio,
+        )
         return config
 
     async def connect(self) -> None:
-        """Establish connection to Gemini Live API."""
-        try:
-            config = self._build_config()
-            # Store the context manager so we can __aexit__ it later
-            self._ctx_manager = self.client.aio.live.connect(
-                model=LIVE_MODEL,
-                config=config,
-            )
-            self.session = await self._ctx_manager.__aenter__()
-            self._connected = True
-            # Start background task to receive responses
-            self._receive_task = asyncio.create_task(self._receive_loop())
-            logger.info("Gemini Live session connected")
-        except Exception as e:
-            logger.error(f"Failed to connect to Gemini Live: {e}")
-            raise
+        """Establish connection to Gemini Live API.
+
+        Tries with full config first, then falls back by stripping
+        features that may not be supported by the current model/API version.
+        """
+        config = self._build_config()
+        fallback_keys = ["input_audio_transcription", "realtime_input_config"]
+
+        for attempt in range(len(fallback_keys) + 1):
+            try:
+                self._ctx_manager = self.client.aio.live.connect(
+                    model=LIVE_MODEL,
+                    config=config,
+                )
+                self.session = await self._ctx_manager.__aenter__()
+                self._connected = True
+                self._receive_task = asyncio.create_task(self._receive_loop())
+                logger.info("Gemini Live session connected (attempt %d)", attempt + 1)
+                return
+            except Exception as e:
+                err_msg = str(e)
+                if attempt < len(fallback_keys):
+                    key = fallback_keys[attempt]
+                    if key in config:
+                        logger.warning(
+                            "Connection failed with %s enabled, retrying without it: %s",
+                            key, err_msg,
+                        )
+                        del config[key]
+                        # Clean up failed context manager
+                        if self._ctx_manager:
+                            try:
+                                await self._ctx_manager.__aexit__(None, None, None)
+                            except Exception:
+                                pass
+                            self._ctx_manager = None
+                        continue
+                logger.error("Failed to connect to Gemini Live: %s", err_msg)
+                raise
 
     async def disconnect(self) -> None:
         """Close Gemini Live session."""
@@ -242,21 +265,92 @@ class GeminiLiveSession:
             self.session = None
             logger.info("Gemini Live session closed")
 
+    async def _reconnect(self) -> bool:
+        """Attempt to reconnect to Gemini Live after a connection drop.
+
+        Retries up to 3 times with exponential backoff (1s, 2s, 4s).
+        On success, re-injects session context so the model knows where we left off.
+        """
+        max_retries = 3
+        for attempt in range(max_retries):
+            delay = 2 ** attempt
+            logger.info(
+                "Reconnecting to Gemini Live (attempt %d/%d) in %ds...",
+                attempt + 1, max_retries, delay,
+            )
+            await asyncio.sleep(delay)
+
+            # Clean up old session
+            if self._ctx_manager:
+                try:
+                    await self._ctx_manager.__aexit__(None, None, None)
+                except Exception:
+                    pass
+                self._ctx_manager = None
+                self.session = None
+
+            try:
+                config = self._build_config()
+                self._ctx_manager = self.client.aio.live.connect(
+                    model=LIVE_MODEL,
+                    config=config,
+                )
+                self.session = await self._ctx_manager.__aenter__()
+                self._connected = True
+
+                # Re-inject session context so the model picks up where we left off
+                context = self._build_context_block()
+                await self.session.send_client_content(
+                    turns=types.Content(
+                        role="user",
+                        parts=[types.Part(
+                            text=f"[RECONNEXION] La session a été interrompue brièvement. {context}"
+                        )],
+                    ),
+                    turn_complete=True,
+                )
+                logger.info("Gemini Live reconnected on attempt %d", attempt + 1)
+                return True
+            except Exception as e:
+                logger.warning("Reconnection attempt %d failed: %s", attempt + 1, e)
+
+        logger.error("All %d Gemini reconnection attempts failed", max_retries)
+        return False
+
+    async def _wait_for_connection(self, timeout: float = 10.0) -> None:
+        """Wait for an ongoing reconnection to finish, or raise if not connected."""
+        if self._connected and self.session:
+            return
+        # A reconnection may be in progress — wait for it
+        try:
+            await asyncio.wait_for(self._reconnect_event.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            pass
+        if not self._connected or not self.session:
+            raise RuntimeError("Session not connected")
+
+    def _mark_disconnected(self, reason: str) -> None:
+        """Mark the session as disconnected so reconnection can proceed."""
+        if self._connected:
+            logger.warning("Marking Gemini session disconnected: %s", reason)
+            self._connected = False
+
     async def send_audio(self, audio_data: bytes) -> None:
         """Send raw PCM16 audio chunk to Gemini Live.
 
         Args:
             audio_data: Raw PCM16 audio bytes at 16kHz mono.
         """
-        if not self.session or not self._connected:
-            raise RuntimeError("Session not connected")
+        await self._wait_for_connection()
 
         try:
+            logger.debug("send_audio: chunk_size=%d bytes", len(audio_data))
             await self.session.send_realtime_input(
                 media=types.Blob(data=audio_data, mime_type="audio/pcm;rate=16000")
             )
         except Exception as e:
-            logger.error(f"Error sending audio to Gemini Live: {e}")
+            # Detect dead websocket — mark disconnected so receive_loop can reconnect
+            self._mark_disconnected(str(e))
             raise
 
     async def send_text(self, text: str) -> None:
@@ -265,44 +359,70 @@ class GeminiLiveSession:
         Args:
             text: User text input.
         """
-        if not self.session or not self._connected:
-            raise RuntimeError("Session not connected")
+        await self._wait_for_connection()
 
         try:
+            logger.debug("send_text: length=%d chars", len(text))
             await self.session.send_client_content(
                 turns=types.Content(role="user", parts=[types.Part(text=text)]),
                 turn_complete=True,
             )
         except Exception as e:
-            logger.error(f"Error sending text to Gemini Live: {e}")
+            self._mark_disconnected(str(e))
             raise
 
     async def _receive_loop(self) -> None:
-        """Background loop that receives from Gemini and queues processed messages."""
-        try:
-            async for response in self.session.receive():
-                try:
-                    messages = await self._process_response(response)
-                    for msg in messages:
-                        await self._response_queue.put(msg)
-                except Exception as e:
-                    logger.error(f"Error processing response: {e}", exc_info=True)
-        except asyncio.CancelledError:
-            logger.debug("Receive loop cancelled")
-        except Exception as e:
-            logger.error(f"Error in receive loop: {e}")
-            self._connected = False
-            await self._response_queue.put({"type": "error", "message": str(e)})
+        """Background loop that receives from Gemini and queues processed messages.
+
+        On connection drop, attempts transparent reconnection up to 3 times.
+        Senders (send_audio/send_text) block on _reconnect_event during reconnection.
+        """
+        while True:
+            try:
+                async for response in self.session.receive():
+                    try:
+                        messages = await self._process_response(response)
+                        for msg in messages:
+                            await self._response_queue.put(msg)
+                    except Exception as e:
+                        logger.error(f"Error processing response: {e}", exc_info=True)
+                # If receive() ends without exception, the session closed gracefully
+                logger.info("Gemini Live receive stream ended")
+                break
+            except asyncio.CancelledError:
+                logger.debug("Receive loop cancelled")
+                return
+            except Exception as e:
+                logger.error(f"Gemini Live connection dropped: {e}")
+                self._connected = False
+                self._reconnect_event.clear()  # block senders during reconnection
+
+                await self._response_queue.put({"type": "reconnecting"})
+
+                if await self._reconnect():
+                    self._reconnect_event.set()  # unblock senders
+                    await self._response_queue.put({"type": "reconnected"})
+                    logger.info("Receive loop resuming after reconnection")
+                    continue  # restart the receive loop with new session
+                else:
+                    self._reconnect_event.set()  # unblock senders so they fail cleanly
+                    await self._response_queue.put({
+                        "type": "error",
+                        "message": "Connexion avec Gemini perdue après plusieurs tentatives.",
+                    })
+                    return
 
     async def receive_responses(self) -> AsyncGenerator[dict, None]:
         """Yield processed response messages from the queue."""
-        while self._connected or not self._response_queue.empty():
+        while True:
+            # Stay alive if connected, reconnecting, or queue has pending messages
+            is_reconnecting = not self._reconnect_event.is_set()
+            if not self._connected and not is_reconnecting and self._response_queue.empty():
+                break
             try:
                 msg = await asyncio.wait_for(self._response_queue.get(), timeout=1.0)
                 yield msg
             except asyncio.TimeoutError:
-                if not self._connected and self._response_queue.empty():
-                    break
                 continue
 
     async def _process_response(self, response) -> list[dict]:
@@ -320,6 +440,7 @@ class GeminiLiveSession:
             if hasattr(content, "input_transcription") and content.input_transcription:
                 user_text = content.input_transcription.text
                 if user_text:
+                    logger.debug("input_transcription received: length=%d chars", len(user_text))
                     # Check for crisis language in what the user said
                     crisis = crisis_guard(user_text)
                     if crisis["crisis_detected"]:
@@ -338,6 +459,7 @@ class GeminiLiveSession:
             if hasattr(content, "output_transcription") and content.output_transcription:
                 transcript_text = content.output_transcription.text
                 if transcript_text:
+                    logger.debug("output_transcription received: length=%d chars", len(transcript_text))
                     # Check transcription for reassurance patterns (post-hoc for native audio)
                     guard = reassurance_guard(transcript_text)
                     if not guard["allowed"]:
@@ -357,6 +479,7 @@ class GeminiLiveSession:
 
             # On turn complete, flush any accumulated transcription
             if content.turn_complete:
+                logger.debug("turn_complete received")
                 messages.append({"type": "turn_complete"})
 
             if content.model_turn and content.model_turn.parts:
@@ -368,6 +491,7 @@ class GeminiLiveSession:
                     # Text part (non-thinking)
                     if part.text:
                         text = part.text
+                        logger.debug("text part received: length=%d chars", len(text))
                         # Run through reassurance guard
                         guard = reassurance_guard(text)
                         if not guard["allowed"]:
@@ -380,6 +504,11 @@ class GeminiLiveSession:
 
                     # Audio part (inline_data)
                     if part.inline_data and part.inline_data.data:
+                        logger.debug(
+                            "audio part received: size=%d bytes, mime=%s",
+                            len(part.inline_data.data),
+                            part.inline_data.mime_type or "audio/pcm;rate=24000",
+                        )
                         audio_b64 = base64.b64encode(part.inline_data.data).decode("utf-8")
                         messages.append({
                             "type": "audio",
@@ -392,6 +521,7 @@ class GeminiLiveSession:
             for fc in response.tool_call.function_calls:
                 tool_name = fc.name
                 tool_args = dict(fc.args) if fc.args else {}
+                logger.debug("tool_call received: name=%s, args=%s", tool_name, tool_args)
                 logger.info(f"Tool call: {tool_name}({tool_args})")
 
                 result = await self._execute_tool(tool_name, tool_args)
@@ -467,6 +597,11 @@ class GeminiLiveSession:
             if not situation:
                 continue
 
+            logger.debug(
+                "_pregenerate_images: starting background generation for level=%d, toc_type=%s",
+                target_level,
+                toc_type,
+            )
             try:
                 loop = asyncio.get_event_loop()
                 result = await asyncio.wait_for(
@@ -494,6 +629,7 @@ class GeminiLiveSession:
         Returns:
             Tool result dict.
         """
+        logger.info("_execute_tool: name=%s, args=%s", tool_name, args)
         tool_fn = TOOLS.get(tool_name)
         if not tool_fn:
             logger.error(f"Unknown tool: {tool_name}")
@@ -554,6 +690,12 @@ class GeminiLiveSession:
 
         # Inject updated context into the conversation when the phase changes
         if phase_changed:
+            logger.info(
+                "Phase change: %s -> %s (level=%d)",
+                previous_phase,
+                self.session_state["current_phase"],
+                self.session_state["current_level"],
+            )
             try:
                 await self.session.send_client_content(
                     turns=types.Content(

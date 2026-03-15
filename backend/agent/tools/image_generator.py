@@ -101,6 +101,13 @@ def image_generator(situation: str, level: int, toc_type: str) -> dict:
     Returns:
         A dict with 'image_base64' (data URI), 'prompt_used', and 'level'.
     """
+    logger.info(
+        "image_generator called: level=%d, toc_type=%s, situation_length=%d chars",
+        level,
+        toc_type,
+        len(situation) if situation else 0,
+    )
+
     if not isinstance(level, int) or not (MIN_LEVEL <= level <= MAX_LEVEL):
         return {"error": f"Level must be an integer between {MIN_LEVEL} and {MAX_LEVEL}"}
 
@@ -112,6 +119,8 @@ def image_generator(situation: str, level: int, toc_type: str) -> dict:
 
     safe_situation = _sanitize_prompt(situation)
     prompt = _build_prompt(safe_situation, level, toc_type.strip())
+    logger.debug("image_generator prompt built: %s", prompt)
+    logger.debug("image_generator using model: %s", IMAGEN_MODEL)
 
     for attempt in range(MAX_RETRIES):
         try:
@@ -138,6 +147,11 @@ def image_generator(situation: str, level: int, toc_type: str) -> dict:
         return {"error": "Image generation returned no results (possibly blocked by safety filter)"}
 
     image_bytes = response.images[0]._image_bytes
+    logger.info(
+        "image_generator succeeded: level=%d, image_size=%d bytes",
+        level,
+        len(image_bytes),
+    )
     b64 = base64.b64encode(image_bytes).decode()
     data_uri = f"data:image/png;base64,{b64}"
 

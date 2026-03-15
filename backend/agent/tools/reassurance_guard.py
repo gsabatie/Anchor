@@ -302,6 +302,8 @@ def reassurance_guard(output_text: str) -> dict:
     if not output_text or not output_text.strip():
         return {"allowed": True, "replacement": None, "matched_pattern": None}
 
+    logger.debug("reassurance_guard check: text_length=%d chars", len(output_text))
+
     matched = _check_patterns(output_text)
 
     if matched:
