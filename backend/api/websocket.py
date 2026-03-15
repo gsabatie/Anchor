@@ -2,6 +2,9 @@ import asyncio
 import json
 import logging
 import os
+import threading
+import time
+from collections import defaultdict
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 
@@ -12,6 +15,18 @@ logger = logging.getLogger(__name__)
 ws_router = APIRouter()
 
 MAX_AUDIO_CHUNK_SIZE = 256 * 1024  # 256 KB per message
+
+# ---------------------------------------------------------------------------
+# Per-IP connection limiting
+# ---------------------------------------------------------------------------
+_active_connections: dict[str, int] = defaultdict(int)
+_connections_lock = threading.Lock()
+MAX_CONNECTIONS_PER_IP = 2
+
+# ---------------------------------------------------------------------------
+# Audio chunk rate limiting
+# ---------------------------------------------------------------------------
+AUDIO_RATE_LIMIT = 50  # max audio chunks per second per session
 
 
 def _validate_token(token: str | None) -> bool:
@@ -32,6 +47,19 @@ async def session_ws(websocket: WebSocket):
     if not _validate_token(token):
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
+
+    client_ip = websocket.client.host if websocket.client else "unknown"
+    with _connections_lock:
+        if _active_connections[client_ip] >= MAX_CONNECTIONS_PER_IP:
+            logger.warning(
+                "Connection limit reached for IP %s (%d/%d)",
+                client_ip,
+                _active_connections[client_ip],
+                MAX_CONNECTIONS_PER_IP,
+            )
+            await websocket.close(code=status.WS_1013_TRY_AGAIN_LATER)
+            return
+        _active_connections[client_ip] += 1
 
     await websocket.accept()
     gemini_session = None
@@ -71,7 +99,7 @@ async def session_ws(websocket: WebSocket):
 
         # Create tasks for bidirectional communication
         receive_task = asyncio.create_task(
-            _receive_from_client(websocket, gemini_session)
+            _receive_from_client(websocket, gemini_session, client_ip)
         )
         send_task = asyncio.create_task(
             _send_to_client(websocket, gemini_session)
@@ -105,6 +133,10 @@ async def session_ws(websocket: WebSocket):
         except Exception:
             pass
     finally:
+        with _connections_lock:
+            _active_connections[client_ip] -= 1
+            if _active_connections[client_ip] <= 0:
+                del _active_connections[client_ip]
         if keepalive_task is not None:
             keepalive_task.cancel()
             try:
@@ -116,9 +148,12 @@ async def session_ws(websocket: WebSocket):
 
 
 async def _receive_from_client(
-    websocket: WebSocket, gemini_session: GeminiLiveSession
+    websocket: WebSocket, gemini_session: GeminiLiveSession, client_ip: str = "unknown"
 ) -> None:
     """Receive audio/text from client and forward to Gemini Live."""
+    # Sliding-window audio rate limiter — local to this session.
+    audio_chunk_times: list[float] = []
+
     try:
         while True:
             message = await websocket.receive()
@@ -132,6 +167,17 @@ async def _receive_from_client(
                         "message": "Audio chunk too large",
                     })
                     continue
+
+                # Sliding-window check: allow at most AUDIO_RATE_LIMIT chunks/s.
+                now = time.monotonic()
+                audio_chunk_times = [t for t in audio_chunk_times if now - t < 1.0]
+                if len(audio_chunk_times) >= AUDIO_RATE_LIMIT:
+                    logger.warning(
+                        "Audio rate limit exceeded for client %s — dropping chunk",
+                        client_ip,
+                    )
+                    continue
+                audio_chunk_times.append(now)
 
                 try:
                     await gemini_session.send_audio(data)

@@ -22,6 +22,8 @@ export function useWebSocket(token) {
   const [transcript, setTranscript] = useState([])
   const [error, setError] = useState(null)
   const [isThinking, setIsThinking] = useState(false)
+  const [crisisAlert, setCrisisAlert] = useState(null)
+  const [reassuranceViolation, setReassuranceViolation] = useState(null)
 
   const getAudioContext = useCallback(() => {
     if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
@@ -191,6 +193,38 @@ export function useWebSocket(token) {
             setTimerData(msg)
             break
 
+          case 'crisis_alert':
+            // Safety-critical: user expressed crisis language
+            setCrisisAlert({
+              redirect: msg.redirect,
+              timestamp: Date.now(),
+            })
+            setTranscript(prev => [
+              ...prev,
+              { role: 'system', content: msg.redirect, crisis: true }
+            ])
+            break
+
+          case 'reassurance_violation':
+            // Model spoke reassurance in audio — show correction
+            setReassuranceViolation({
+              replacement: msg.replacement,
+              timestamp: Date.now(),
+            })
+            setTranscript(prev => [
+              ...prev,
+              { role: 'system', content: msg.replacement, correction: true }
+            ])
+            break
+
+          case 'user_transcript':
+            // Transcription of what the user said (for display)
+            setTranscript(prev => [
+              ...prev,
+              { role: 'user', content: msg.content }
+            ])
+            break
+
           case 'error':
             setIsThinking(false)
             console.error('Server error:', msg.message)
@@ -279,6 +313,8 @@ export function useWebSocket(token) {
     transcript,
     error,
     isThinking,
+    crisisAlert,
+    reassuranceViolation,
     connect,
     disconnect,
     sendAudio,

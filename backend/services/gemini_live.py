@@ -21,6 +21,7 @@ TOOL_TIMEOUTS = {
     "image_generator": 45.0,
 }
 from agent.tools.reassurance_guard import reassurance_guard
+from agent.tools.crisis_guard import crisis_guard
 from agent.tools.hierarchy_builder import hierarchy_builder
 from agent.tools.image_generator import image_generator
 from agent.tools.erp_timer import erp_timer
@@ -159,6 +160,7 @@ class GeminiLiveSession:
             "anxiety_readings": [],
             "session_id": None,
         }
+        self._image_cache: dict[int, dict] = {}
 
     def _build_config(self) -> dict:
         """Build the LiveConnectConfig for Gemini Live."""
@@ -318,6 +320,15 @@ class GeminiLiveSession:
             if hasattr(content, "input_transcription") and content.input_transcription:
                 user_text = content.input_transcription.text
                 if user_text:
+                    # Check for crisis language in what the user said
+                    crisis = crisis_guard(user_text)
+                    if crisis["crisis_detected"]:
+                        logger.critical("CRISIS DETECTED in user speech: %r", crisis["matched_pattern"])
+                        messages.append({
+                            "type": "crisis_alert",
+                            "redirect": crisis["redirect"],
+                            "matched_pattern": crisis["matched_pattern"],
+                        })
                     messages.append({
                         "type": "user_transcript",
                         "content": user_text,
@@ -434,6 +445,45 @@ class GeminiLiveSession:
             f"Anxiété récente: {readings[-5:] if readings else 'aucune'}"
         )
 
+    def _get_cached_image(self, level: int) -> dict | None:
+        """Return a pre-generated image for the given level, if available."""
+        return self._image_cache.get(level)
+
+    async def _pregenerate_images(self, current_level: int) -> None:
+        """Pre-generate exposure images for the next 1-2 levels in the background."""
+        hierarchy = self.session_state.get("hierarchy")
+        if not hierarchy:
+            return
+
+        for next_level_data in hierarchy:
+            target_level = next_level_data.get("level", 0)
+            if target_level <= current_level or target_level > current_level + 2:
+                continue
+            if target_level in self._image_cache:
+                continue
+
+            situation = next_level_data.get("situation", "")
+            toc_type = self.session_state.get("toc_type", "")
+            if not situation:
+                continue
+
+            try:
+                loop = asyncio.get_event_loop()
+                result = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None,
+                        lambda s=situation, l=target_level, t=toc_type: image_generator(
+                            situation=s, level=l, toc_type=t
+                        ),
+                    ),
+                    timeout=45.0,
+                )
+                if "error" not in result:
+                    self._image_cache[target_level] = result
+                    logger.info("Pre-generated image for level %d", target_level)
+            except Exception as exc:
+                logger.warning("Pre-generation failed for level %d: %s", target_level, exc)
+
     async def _execute_tool(self, tool_name: str, args: dict) -> dict:
         """Execute an ADK tool by name with a timeout.
 
@@ -448,6 +498,18 @@ class GeminiLiveSession:
         if not tool_fn:
             logger.error(f"Unknown tool: {tool_name}")
             return {"error": f"Unknown tool: {tool_name}"}
+
+        # Use cached image if available (from pre-generation)
+        if tool_name == "image_generator":
+            level = args.get("level", 0)
+            cached = self._image_cache.pop(level, None)
+            if cached:
+                logger.info("Using pre-generated image for level %d", level)
+                result = cached
+                # Update state and return — skip the executor call
+                self.session_state["current_phase"] = "exposure"
+                self.session_state["current_level"] = level
+                return result
 
         timeout = TOOL_TIMEOUTS.get(tool_name, 15.0)
         try:
@@ -473,9 +535,12 @@ class GeminiLiveSession:
             if tool_name == "hierarchy_builder":
                 self.session_state["hierarchy"] = result.get("levels")
                 self.session_state["current_phase"] = "hierarchy"
+                self.session_state["toc_type"] = args.get("toc_type", "")
             elif tool_name == "image_generator":
                 self.session_state["current_phase"] = "exposure"
                 self.session_state["current_level"] = args.get("level", 0)
+                # Pre-generate next levels in background
+                asyncio.create_task(self._pregenerate_images(args.get("level", 0)))
             elif tool_name == "erp_timer":
                 self.session_state["current_phase"] = "timer"
             elif tool_name == "session_tracker":
