@@ -5,6 +5,8 @@ statement reinforces the obsessive cycle. This guard catches reassuring
 language and replaces it with an ERP-appropriate redirect.
 """
 
+from __future__ import annotations
+
 import logging
 import random
 import re
@@ -77,13 +79,14 @@ REASSURANCE_PATTERNS = [
     "that can't happen",
     "that cannot happen",
     "there's no way",
-    "impossible",
+    # NOTE: "impossible" removed — too broad for Socratic dialogue context.
+    # Covered by targeted regex below.
     # Checking confirmation
     "you already checked",
     "you checked already",
     "you've already checked",
-    "it's done",
-    "it is done",
+    # NOTE: "it's done" / "it is done" removed — false positives with
+    # therapeutic context like "the timer is done". Covered by targeted regex.
     "you did it right",
     "you did it correctly",
     # Implicit reassurance
@@ -92,12 +95,83 @@ REASSURANCE_PATTERNS = [
     "i assure you",
     "trust me",
     "believe me",
-    "absolutely",
-    "of course",
+    # NOTE: "absolutely" and "of course" moved to targeted regex patterns
+    # to avoid false positives.
     "for sure",
     "one hundred percent",
     "100%",
     "100 percent",
+    # -------------------------------------------------------------------
+    # French reassurance patterns (projet destiné aux francophones)
+    # -------------------------------------------------------------------
+    # Direct reassurance — FR
+    "ça va aller",
+    "ca va aller",
+    "tout va bien",
+    "tout ira bien",
+    "tout va bien se passer",
+    "ça ira",
+    "ca ira",
+    "ça va bien se passer",
+    "ca va bien se passer",
+    # Worry dismissal — FR
+    "t'inquiète pas",
+    "ne t'inquiète pas",
+    "ne vous inquiétez pas",
+    "t'en fais pas",
+    "ne t'en fais pas",
+    "ne vous en faites pas",
+    "tu n'as pas à t'en faire",
+    "vous n'avez pas à vous en faire",
+    # Safety / danger denial — FR
+    "il n'y a pas de danger",
+    "y'a pas de danger",
+    "il n'y a aucun danger",
+    "c'est propre",
+    "c'est clean",
+    "c'est sûr",
+    "c'est sécuritaire",
+    "tu es en sécurité",
+    "vous êtes en sécurité",
+    # Harm denial — FR
+    "rien de grave",
+    "c'est pas grave",
+    "ce n'est pas grave",
+    "rien de mal",
+    "tu n'as rien fait de mal",
+    "vous n'avez rien fait de mal",
+    "personne n'a été blessé",
+    "personne n'a été blessée",
+    "il ne va rien arriver",
+    "rien ne va arriver",
+    "il ne va rien se passer",
+    "rien ne va se passer",
+    # Certainty / checking confirmation — FR
+    "la porte est fermée",
+    "c'est bien fermé",
+    "c'est fermé",
+    "le four est éteint",
+    "c'est éteint",
+    "c'est impossible",
+    "tu as déjà vérifié",
+    "vous avez déjà vérifié",
+    "c'est fait",
+    "c'est vérifié",
+    # Implicit reassurance — FR
+    "je te promets",
+    "je vous promets",
+    "je te garantis",
+    "je vous garantis",
+    "je t'assure",
+    "je vous assure",
+    "fais-moi confiance",
+    "faites-moi confiance",
+    "crois-moi",
+    "croyez-moi",
+    "bien sûr",
+    "évidemment",
+    "pas de souci",
+    "pas de problème",
 ]
 
 # ---------------------------------------------------------------------------
@@ -112,6 +186,26 @@ _REGEX_PATTERNS = [
     re.compile(r"\bnothing (?:bad |wrong )?(?:will|can|could|is going to) happen\b", re.IGNORECASE),
     # "I can confirm/verify that..."
     re.compile(r"\bi can (?:confirm|verify|assure|guarantee)\b", re.IGNORECASE),
+    # -------------------------------------------------------------------
+    # Targeted English patterns (moved from plain-text to reduce false positives)
+    # -------------------------------------------------------------------
+    # "absolutely" only at sentence start or after punctuation
+    re.compile(r"(?:^|[,.!?]\s*)absolutely\b", re.IGNORECASE),
+    # "of course" but not when followed by therapeutic-context words
+    re.compile(r"\bof course\b(?!\s+(?:the timer|the session|we can|we will|let's))", re.IGNORECASE),
+    # "it's done" / "it is done" only when NOT followed by a dash (timer context)
+    re.compile(r"\bit(?:'s| is) done\b(?!\s*[—–\-])", re.IGNORECASE),
+    # "impossible" only when used as standalone reassurance (not in Socratic questions)
+    re.compile(r"(?:^|[,.!?]\s*)(?:that's |that is |it's |it is )?impossible\b(?!\s*(?:\?|to say|to know|to tell))", re.IGNORECASE),
+    # -------------------------------------------------------------------
+    # French regex patterns
+    # -------------------------------------------------------------------
+    # "tu es / vous êtes + fine/ok/safe" — FR safety confirmation
+    re.compile(r"\b(?:tu es|vous êtes) (?:tout à fait |parfaitement |totalement |complètement )?(?:en sécurité|ok|okay|bien|sauf|sauve|protégé|protégée)\b", re.IGNORECASE),
+    # "il n'y a pas / aucun + risque/danger/problème" — FR threat denial
+    re.compile(r"\bil (?:n'y a|n'existe) (?:pas de|aucun|pas d') ?(?:risque|danger|problème|souci|menace|mal)\b", re.IGNORECASE),
+    # "rien ne peut / va / pourrait arriver / se passer" — FR nothing-will-happen
+    re.compile(r"\brien (?:ne )?(?:peut|va|pourrait|pourra) (?:t'|vous )?(?:arriver|se passer)\b", re.IGNORECASE),
 ]
 
 # ---------------------------------------------------------------------------
@@ -142,6 +236,24 @@ _ERP_REDIRECTS = [
         "That question is the compulsion speaking. "
         "You already know the answer won't satisfy you for long. "
         "Let's redirect — tell me, where are you on a scale of 0 to 10?"
+    ),
+    # -------------------------------------------------------------------
+    # French ERP redirects
+    # -------------------------------------------------------------------
+    (
+        "Je t'entends, et je sais que tu souffres là. "
+        "Mais tu sais aussi que si je te rassure, ça ne va pas t'aider vraiment. "
+        "On va traverser ça ensemble autrement."
+    ),
+    (
+        "Je comprends que tu veuilles entendre que tout va bien. "
+        "Mais te donner cette réponse nourrirait le cycle. "
+        "Restons avec l'incertitude ensemble."
+    ),
+    (
+        "Ce que tu me demandes, c'est la compulsion qui parle. "
+        "Tu sais que la réponse ne te satisfera pas longtemps. "
+        "Dis-moi plutôt, tu es à combien sur 10 ?"
     ),
 ]
 

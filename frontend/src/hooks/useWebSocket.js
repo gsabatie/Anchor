@@ -16,6 +16,7 @@ export function useWebSocket(token) {
   const [timerData, setTimerData] = useState(null)
   const [transcript, setTranscript] = useState([])
   const [error, setError] = useState(null)
+  const [isThinking, setIsThinking] = useState(false)
 
   const getAudioContext = useCallback(() => {
     if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
@@ -82,6 +83,7 @@ export function useWebSocket(token) {
     ws.onclose = (event) => {
       console.log('WebSocket disconnected:', event.code, event.reason)
       setStatus('disconnected')
+      setIsThinking(false)
     }
 
     ws.onerror = () => {
@@ -94,17 +96,53 @@ export function useWebSocket(token) {
 
         switch (msg.type) {
           case 'connection':
+            setIsThinking(false)
             setTranscript([{ role: 'assistant', content: msg.message }])
             break
 
           case 'text':
+            setIsThinking(false)
             setTranscript(prev => [
               ...prev,
               { role: 'assistant', content: msg.content }
             ])
             break
 
+          case 'transcript_delta':
+            setIsThinking(false)
+            setTranscript(prev => {
+              const last = prev[prev.length - 1]
+              if (last && last.role === 'assistant' && last.streaming) {
+                // Append to the current streaming message
+                return [
+                  ...prev.slice(0, -1),
+                  { ...last, content: last.content + msg.content }
+                ]
+              }
+              // Start a new streaming message
+              return [
+                ...prev,
+                { role: 'assistant', content: msg.content, streaming: true }
+              ]
+            })
+            break
+
+          case 'turn_complete':
+            setIsThinking(false)
+            setTranscript(prev => {
+              const last = prev[prev.length - 1]
+              if (last && last.streaming) {
+                return [
+                  ...prev.slice(0, -1),
+                  { role: last.role, content: last.content }
+                ]
+              }
+              return prev
+            })
+            break
+
           case 'audio':
+            setIsThinking(false)
             if (msg.data) {
               playPcmAudio(msg.data)
             }
@@ -124,6 +162,7 @@ export function useWebSocket(token) {
             break
 
           case 'error':
+            setIsThinking(false)
             console.error('Server error:', msg.message)
             setError(msg.message)
             break
@@ -147,6 +186,7 @@ export function useWebSocket(token) {
 
   const sendAudio = useCallback((audioBuffer) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      setIsThinking(true)
       // Send raw PCM16 bytes directly as binary
       wsRef.current.send(audioBuffer)
     }
@@ -154,6 +194,7 @@ export function useWebSocket(token) {
 
   const sendMessage = useCallback((text) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      setIsThinking(true)
       setTranscript(prev => [
         ...prev,
         { role: 'user', content: text }
@@ -180,6 +221,7 @@ export function useWebSocket(token) {
     timerData,
     transcript,
     error,
+    isThinking,
     sendAudio,
     sendMessage,
     sendControl,

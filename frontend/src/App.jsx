@@ -23,6 +23,7 @@ function App() {
     sendMessage,
     sendControl,
     sendAudio,
+    isThinking,
   } = useWebSocket(sessionActive ? token : null)
 
   const handleStartSession = useCallback(() => {
@@ -74,6 +75,14 @@ function App() {
                   <div className="message assistant">
                     <span className="role">{t('anchor')}</span>
                     <p>{t('connecting')}</p>
+                  </div>
+                )}
+                {isThinking && (
+                  <div className="message assistant thinking">
+                    <span className="role">{t('anchor')}</span>
+                    <div className="thinking-dots">
+                      <span></span><span></span><span></span>
+                    </div>
                   </div>
                 )}
               </div>

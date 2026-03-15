@@ -11,8 +11,9 @@ from services.firestore import get_firestore_client
 
 logger = logging.getLogger(__name__)
 
+from config import GEMINI_TEXT_MODEL
+
 MAX_DESCRIPTION_LENGTH = 2000
-MODEL = "gemini-2.5-flash"
 FIRESTORE_COLLECTION = "hierarchies"
 
 _GENERATION_PROMPT = """\
@@ -75,7 +76,7 @@ def hierarchy_builder(toc_description: str, toc_type: str) -> dict:
     try:
         client = genai.Client()
         response = client.models.generate_content(
-            model=MODEL,
+            model=GEMINI_TEXT_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",

@@ -8,6 +8,8 @@ from typing import AsyncGenerator
 from google import genai
 from google.genai import types
 
+from config import GEMINI_LIVE_MODEL as LIVE_MODEL
+
 from agent.prompts.system_prompt import SYSTEM_PROMPT
 from agent.tools.reassurance_guard import reassurance_guard
 from agent.tools.hierarchy_builder import hierarchy_builder
@@ -28,6 +30,17 @@ TOOLS = {
 
 # Tool declarations for Gemini Live (function declarations)
 TOOL_DECLARATIONS = [
+    types.FunctionDeclaration(
+        name="reassurance_guard",
+        description="Validate text before speaking it. Call this to check if your planned response contains reassurance patterns that would reinforce OCD compulsions. Always call before delivering a response if you are unsure whether it contains reassurance.",
+        parameters=types.Schema(
+            type="OBJECT",
+            properties={
+                "output_text": types.Schema(type="STRING", description="The text you plan to say, to be checked for reassurance patterns"),
+            },
+            required=["output_text"],
+        ),
+    ),
     types.FunctionDeclaration(
         name="hierarchy_builder",
         description="Build a personalized ERP exposure hierarchy (10 levels) based on the user's OCD description.",
@@ -98,16 +111,30 @@ class GeminiLiveSession:
     def __init__(self, gemini_api_key: str | None = None):
         if not gemini_api_key:
             raise ValueError("GOOGLE_GENAI_API_KEY is required")
-        self.client = genai.Client(api_key=gemini_api_key)
+        # Native audio models require v1alpha; standard models use v1beta
+        api_version = "v1alpha" if "native-audio" in LIVE_MODEL else "v1beta"
+        self.client = genai.Client(
+            api_key=gemini_api_key,
+            http_options=types.HttpOptions(api_version=api_version),
+        )
         self.session = None
         self._ctx_manager = None  # store the async context manager
         self._connected = False
         self._response_queue: asyncio.Queue[dict] = asyncio.Queue()
         self._receive_task: asyncio.Task | None = None
+        self.session_state = {
+            "current_phase": "intake",
+            "current_level": 0,
+            "hierarchy": None,
+            "anxiety_readings": [],
+            "session_id": None,
+        }
 
     def _build_config(self) -> dict:
         """Build the LiveConnectConfig for Gemini Live."""
-        return {
+        is_native_audio = "native-audio" in LIVE_MODEL
+
+        config = {
             "response_modalities": ["AUDIO"],
             "speech_config": types.SpeechConfig(
                 voice_config=types.VoiceConfig(
@@ -122,13 +149,21 @@ class GeminiLiveSession:
             "tools": [types.Tool(function_declarations=TOOL_DECLARATIONS)],
         }
 
+        # Native audio models generate audio directly — transcription
+        # gives us the text equivalent. Non-native models (e.g. gemini-2.0-flash)
+        # already emit text parts alongside TTS audio.
+        if is_native_audio:
+            config["output_audio_transcription"] = types.AudioTranscriptionConfig()
+
+        return config
+
     async def connect(self) -> None:
         """Establish connection to Gemini Live API."""
         try:
             config = self._build_config()
             # Store the context manager so we can __aexit__ it later
             self._ctx_manager = self.client.aio.live.connect(
-                model="gemini-2.5-flash-native-audio-latest",
+                model=LIVE_MODEL,
                 config=config,
             )
             self.session = await self._ctx_manager.__aenter__()
@@ -228,16 +263,42 @@ class GeminiLiveSession:
         """
         messages = []
 
-        # Handle server content (text + audio)
+        # Handle server content (text + audio + transcription)
         if response.server_content:
             content = response.server_content
+
+            # Handle output audio transcription (native audio models)
+            if hasattr(content, "output_transcription") and content.output_transcription:
+                transcript_text = content.output_transcription.text
+                if transcript_text:
+                    # Check transcription for reassurance patterns (post-hoc for native audio)
+                    guard = reassurance_guard(transcript_text)
+                    if not guard["allowed"]:
+                        logger.warning(
+                            "Reassurance detected in audio transcription: %r",
+                            guard["matched_pattern"],
+                        )
+                        messages.append({
+                            "type": "reassurance_violation",
+                            "matched_pattern": guard["matched_pattern"],
+                            "replacement": guard["replacement"],
+                        })
+                    messages.append({
+                        "type": "transcript_delta",
+                        "content": transcript_text,
+                    })
+
+            # On turn complete, flush any accumulated transcription
+            if content.turn_complete:
+                messages.append({"type": "turn_complete"})
+
             if content.model_turn and content.model_turn.parts:
                 for part in content.model_turn.parts:
                     # Skip internal thinking/reasoning parts
                     if getattr(part, "thought", False):
                         continue
 
-                    # Text part
+                    # Text part (non-thinking)
                     if part.text:
                         text = part.text
                         # Run through reassurance guard
@@ -307,6 +368,16 @@ class GeminiLiveSession:
 
         return messages
 
+    def _build_context_block(self) -> str:
+        """Return a string summarising current session state for context injection."""
+        state = self.session_state
+        readings = state["anxiety_readings"]
+        return (
+            f"\n[SESSION] Phase: {state['current_phase']} | "
+            f"Niveau: {state['current_level']}/10 | "
+            f"Anxiété récente: {readings[-5:] if readings else 'aucune'}"
+        )
+
     async def _execute_tool(self, tool_name: str, args: dict) -> dict:
         """Execute an ADK tool by name with a timeout.
 
@@ -332,10 +403,46 @@ class GeminiLiveSession:
                 timeout=15.0,
             )
             logger.info(f"Tool {tool_name} completed")
-            return result
         except asyncio.TimeoutError:
             logger.error(f"Tool {tool_name} timed out after 15s")
             return {"error": f"Tool {tool_name} timed out"}
         except Exception as e:
             logger.error(f"Tool {tool_name} failed: {e}")
             return {"error": str(e)}
+
+        # --- Update session state based on tool results ---
+        previous_phase = self.session_state["current_phase"]
+        phase_changed = False
+
+        if "error" not in result:
+            if tool_name == "hierarchy_builder":
+                self.session_state["hierarchy"] = result.get("levels")
+                self.session_state["current_phase"] = "hierarchy"
+            elif tool_name == "image_generator":
+                self.session_state["current_phase"] = "exposure"
+                self.session_state["current_level"] = args.get("level", 0)
+            elif tool_name == "erp_timer":
+                self.session_state["current_phase"] = "timer"
+            elif tool_name == "session_tracker":
+                action = args.get("action")
+                if action == "start_session" and result.get("session_id"):
+                    self.session_state["session_id"] = result["session_id"]
+                elif action == "end_session":
+                    self.session_state["current_phase"] = "closing"
+
+            phase_changed = self.session_state["current_phase"] != previous_phase
+
+        # Inject updated context into the conversation when the phase changes
+        if phase_changed:
+            try:
+                await self.session.send_client_content(
+                    turns=types.Content(
+                        role="user",
+                        parts=[types.Part(text=self._build_context_block())]
+                    ),
+                    turn_complete=False,
+                )
+            except Exception as e:
+                logger.warning("Failed to inject session context: %s", e)
+
+        return result

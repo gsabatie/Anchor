@@ -14,7 +14,7 @@ MAX_SITUATION_LENGTH = 500
 MIN_LEVEL = 1
 MAX_LEVEL = 10
 
-IMAGEN_MODEL = os.getenv("IMAGEN_MODEL", "imagegeneration@006")
+from config import IMAGEN_MODEL
 
 # Calibrate visual intensity per exposure level.
 # Lower levels use distant, muted framing; higher levels get close-up and vivid.
