@@ -13,7 +13,6 @@ function App() {
   const [sessionActive, setSessionActive] = useState(false)
   const token = import.meta.env.VITE_WS_AUTH_TOKEN || ''
 
-  console.log('🚀 App: Token from env:', token ? token.substring(0, 10) + '...' : 'NOT SET')
   const {
     status,
     exposureImage,
@@ -24,6 +23,8 @@ function App() {
     sendControl,
     sendAudio,
     isThinking,
+    crisisAlert,
+    reassuranceViolation,
   } = useWebSocket(sessionActive ? token : null)
 
   const handleStartSession = useCallback(() => {
@@ -31,8 +32,8 @@ function App() {
   }, [])
 
   const handleEndSession = useCallback(() => {
-    setSessionActive(false)
     sendControl('end_session')
+    setSessionActive(false)
   }, [sendControl])
 
   const handleAnxietyReport = useCallback((level) => {
@@ -51,8 +52,21 @@ function App() {
       </header>
 
       <main>
+        {crisisAlert && (
+          <div className="crisis-banner" role="alert" aria-live="assertive">
+            <span className="crisis-banner__icon" aria-hidden="true">🆘</span>
+            <p>{crisisAlert.redirect}</p>
+          </div>
+        )}
+
+        {reassuranceViolation && (
+          <div className="reassurance-banner" role="status" aria-live="polite">
+            {reassuranceViolation.replacement}
+          </div>
+        )}
+
         {error && (
-          <div className="error-banner">
+          <div className="error-banner" role="alert" aria-live="assertive">
             {error}
           </div>
         )}

@@ -442,27 +442,70 @@
     transform: scale(1);
   }
 }
+/* Crisis banner */
+.crisis-banner {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: #7B2D2D;
+  color: #ffffff;
+  padding: 16px 20px;
+  border-radius: 0 0 12px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 20px rgba(123, 45, 45, 0.4);
+  animation: crisis-appear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-weight: 600;
+  font-size: 1em;
+  line-height: 1.5;
+}
+
+@keyframes crisis-appear {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.crisis-banner__icon {
+  font-size: 1.4em;
+  flex-shrink: 0;
+}
+
+/* Reassurance correction banner */
+.reassurance-banner {
+  background: #f0e6d3;
+  color: #5a4a2f;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border-left: 4px solid #c4a35a;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .app {
     padding: 10px;
   }
-header h1 {
-  font-size: 2em;
-  
 
-    .session {
-      padding: 15px;
+  header h1 {
+    font-size: 2em;
   }
-.transcript-panel {
-  max-height: 200px;
-  
 
-    .message.user {
-      margin-left: 20px;
-    }
+  .session {
+    padding: 15px;
+  }
 
-    .message.assistant {
-      margin-right: 20px;
-    }
+  .transcript-panel {
+    max-height: 200px;
+  }
+
+  .message.user {
+    margin-left: 20px;
+  }
+
+  .message.assistant {
+    margin-right: 20px;
+  }
 }

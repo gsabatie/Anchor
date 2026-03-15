@@ -16,6 +16,7 @@ export function useWebSocket(token) {
   const reconnectAttemptsRef = useRef(0)
   const reconnectTimerRef = useRef(null)
   const intentionalDisconnectRef = useRef(false)
+  const tokenRef = useRef(null)
   const [status, setStatus] = useState('disconnected')
   const [exposureImage, setExposureImage] = useState(null)
   const [timerData, setTimerData] = useState(null)
@@ -76,6 +77,9 @@ export function useWebSocket(token) {
   const connect = useCallback((connectToken) => {
     if (!connectToken) return
 
+    // Store token in ref so reconnection always uses the latest value
+    tokenRef.current = connectToken
+
     // Mark this as an intentional new connection attempt
     intentionalDisconnectRef.current = false
     reconnectAttemptsRef.current = 0
@@ -107,7 +111,7 @@ export function useWebSocket(token) {
         )
         setStatus('reconnecting')
         reconnectTimerRef.current = setTimeout(() => {
-          connect(connectToken)
+          connect(tokenRef.current)
         }, delay)
       } else {
         setStatus('disconnected')
@@ -328,6 +332,5 @@ export function useWebSocket(token) {
     sendAudio,
     sendMessage,
     sendControl,
-    ws: wsRef.current
   }
 }
