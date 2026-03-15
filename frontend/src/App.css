@@ -1,4 +1,6 @@
-/* Anchor ERP App Styles */
+/* Anchor ERP App Styles — Fond Marin theme */
+
+/* ─── Layout ─────────────────────────────────────────────── */
 
 .app {
   width: 100%;
@@ -7,77 +9,82 @@
   padding: 20px;
   padding-top: max(20px, env(safe-area-inset-top));
   padding-bottom: max(20px, env(safe-area-inset-bottom));
+  position: relative;
+  z-index: 1;
 }
 
-/* Header — glass-card treatment */
+/* ─── Header — soft card with illustrated feel ───────────── */
+
 header {
   text-align: center;
   margin-bottom: 30px;
-  padding: 28px 24px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  box-shadow: var(--shadow-md);
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-ocean-300);
+  box-shadow: var(--shadow-sm);
 }
 
 header h1 {
   margin: 0;
-  font-size: 1.75rem;
-  font-weight: 600;
-  letter-spacing: -0.5px;
-  color: var(--color-anchor-500);
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-ocean-800);
 }
 
 header p {
   margin: 5px 0 0 0;
-  font-size: 1.1em;
-  color: var(--color-anchor-400);
+  font-size: 0.95em;
+  color: var(--color-ocean-600);
 }
+
+/* ─── Status indicator ───────────────────────────────────── */
 
 .status-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  margin-top: 15px;
+  margin-top: 12px;
 }
 
 .status-dot {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   display: inline-block;
 }
 
 .status-dot.disconnected {
-  background-color: var(--color-danger);
+  background-color: var(--color-ocean-400);
 }
 
 .status-dot.connecting {
-  background-color: var(--color-mild);
+  background-color: var(--color-high);
 }
 
 .status-dot.connected {
-  background-color: var(--color-success);
+  background-color: var(--color-algue-400);
 }
 
 .status-dot.reconnecting {
-  background-color: var(--color-mild);
-  animation: blink 1s ease-in-out infinite;
+  background-color: var(--color-high);
+  animation: blink 2s ease-in-out infinite;
 }
 
 @keyframes blink {
   0%, 100% { opacity: 1; }
-  50%      { opacity: 0.3; }
+  50% { opacity: 0.3; }
 }
 
 .status-text {
-  font-weight: 500;
-  font-size: 0.9em;
-  color: var(--color-anchor-400);
+  font-weight: 600;
+  font-size: 0.85em;
+  color: var(--color-ocean-600);
 }
+
+/* ─── Main ───────────────────────────────────────────────── */
 
 main {
   display: flex;
@@ -85,56 +92,59 @@ main {
   gap: 20px;
 }
 
-/* Welcome screen */
+/* ─── Welcome — illustrated card with seaweed deco ──────── */
+
 .welcome {
   position: relative;
   overflow: hidden;
   text-align: center;
-  padding: 32px 24px;
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  padding: 40px 28px;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-ocean-300);
   box-shadow: var(--shadow-md);
 }
 
-/* Organic decorative blob */
+/* ─── Decorative seaweed/coral shape ─────────────────────── */
+
 .welcome__deco {
   position: absolute;
-  width: 300px;
-  height: 300px;
-  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
-  background: linear-gradient(135deg, rgba(155, 132, 191, 0.1), rgba(127, 166, 118, 0.08));
-  top: -60px;
-  right: -60px;
+  width: 200px;
+  height: 280px;
+  bottom: -40px;
+  right: -30px;
   z-index: 0;
-  animation: blob-drift 20s ease-in-out infinite alternate;
+  opacity: 0.12;
+  background: linear-gradient(160deg, var(--color-algue-400), var(--color-algue-300));
+  border-radius: 60% 40% 50% 50% / 70% 30% 70% 30%;
+  animation: seaweed-sway 12s ease-in-out infinite alternate;
 }
 
-@keyframes blob-drift {
-  0%   { border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%; }
-  50%  { border-radius: 50% 50% 30% 70% / 60% 40% 60% 40%; }
-  100% { border-radius: 70% 30% 50% 50% / 40% 60% 30% 70%; }
+@keyframes seaweed-sway {
+  0%   { border-radius: 60% 40% 50% 50% / 70% 30% 70% 30%; transform: rotate(-2deg); }
+  50%  { border-radius: 50% 50% 40% 60% / 60% 40% 60% 40%; transform: rotate(1deg); }
+  100% { border-radius: 40% 60% 55% 45% / 50% 50% 50% 50%; transform: rotate(-1deg); }
 }
+
+/* ─── Welcome text ───────────────────────────────────────── */
 
 .welcome__heading {
   position: relative;
   z-index: 1;
   margin: 0 0 12px;
-  font-size: 1.3em;
-  font-weight: 600;
-  color: var(--color-ground-900);
+  font-size: 1.2em;
+  font-weight: 700;
+  color: var(--color-ocean-800);
 }
 
 .welcome__body {
   position: relative;
   z-index: 1;
-  margin: 0 0 24px;
-  color: var(--color-ground-600);
+  margin: 0 0 28px;
+  color: var(--color-ocean-600);
   font-size: 0.95em;
-  line-height: 1.6;
-  max-width: 480px;
+  line-height: 1.7;
+  max-width: 440px;
   margin-left: auto;
   margin-right: auto;
 }
@@ -142,82 +152,64 @@ main {
 .welcome__note {
   position: relative;
   z-index: 1;
-  margin: 16px 0 0;
+  margin: 20px 0 0;
   font-size: 0.8em;
-  color: var(--color-ground-600);
+  color: var(--color-ocean-600);
   font-style: italic;
 }
 
-/* Start button with shimmer */
+/* ─── Start button — coral, rounded, warm ───────────────── */
+
 .start-btn {
   position: relative;
-  overflow: hidden;
   z-index: 1;
-  background: var(--color-anchor-400);
+  background: var(--color-coral-400);
   color: white;
   border: none;
-  padding: 15px 30px;
-  font-size: 1.2em;
+  padding: 14px 36px;
+  font-size: 1.1em;
+  font-weight: 700;
   border-radius: var(--radius-pill);
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-glow);
+  transition: all 0.3s var(--ease-wave);
+  box-shadow: 0 4px 16px rgba(232, 131, 107, 0.3);
 }
 
 .start-btn:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-  background: var(--color-anchor-500);
+  background: var(--color-coral-500);
+  box-shadow: 0 6px 24px rgba(232, 131, 107, 0.4);
 }
 
-.start-btn::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  animation: shimmer 3s ease-in-out infinite;
-}
+/* ─── Session — soft card ────────────────────────────────── */
 
-@keyframes shimmer {
-  0%   { left: -100%; }
-  100% { left: 100%; }
-}
-
-/* Session container */
 .session {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: var(--radius-md);
-  padding: 25px;
+  background: rgba(255, 255, 255, 0.65);
+  border-radius: var(--radius-lg);
+  padding: 24px;
   box-shadow: var(--shadow-md);
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--color-ocean-300);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
 }
 
-/* Transcript panel */
+/* ─── Transcript — soft panel ────────────────────────────── */
+
 .transcript-panel {
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-radius: 10px;
-  padding: 20px;
+  background: var(--color-ocean-50);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  border: 1px solid var(--color-ocean-300);
   order: 10;
   scroll-behavior: smooth;
   overscroll-behavior: contain;
 }
 
-/* Custom scrollbar */
 .transcript-panel::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
 }
 
 .transcript-panel::-webkit-scrollbar-track {
@@ -225,24 +217,19 @@ main {
 }
 
 .transcript-panel::-webkit-scrollbar-thumb {
-  background: var(--color-ground-300);
+  background: var(--color-ocean-300);
   border-radius: var(--radius-pill);
 }
 
-/* Message entrance animation */
-@keyframes message-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+/* ─── Messages — soft bubbles with organic radii ─────────── */
 
 .message {
   display: flex;
   gap: 10px;
-  margin-bottom: 15px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  line-height: 1.5;
-  animation: message-in 0.3s var(--ease-soft) both;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  line-height: 1.6;
+  border-radius: var(--radius-md);
 }
 
 .message:last-child {
@@ -250,36 +237,38 @@ main {
 }
 
 .message.user {
-  background: var(--color-anchor-100);
-  color: var(--color-ground-900);
-  margin-left: 40px;
+  background: var(--color-algue-100);
+  color: var(--color-ocean-800);
+  margin-left: 32px;
   border-radius: 20px 20px 6px 20px;
 }
 
 .message.assistant {
-  background: var(--color-ground-100);
-  color: var(--color-ground-900);
-  margin-right: 40px;
+  background: var(--color-sable-100);
+  color: var(--color-ocean-800);
+  margin-right: 32px;
   border-radius: 6px 20px 20px 20px;
 }
 
 .message.system {
   background: transparent;
-  border: 1px solid var(--color-ground-300);
-  border-radius: 8px;
+  border: 1px solid var(--color-ocean-300);
+  border-radius: var(--radius-sm);
   text-align: center;
-  color: var(--color-ground-600);
+  color: var(--color-ocean-600);
   font-size: 0.85em;
   margin: 4px 0;
   justify-content: center;
 }
 
 .role {
-  font-weight: 600;
-  font-size: 0.75em;
-  letter-spacing: 0.8px;
-  opacity: 0.6;
-  min-width: 52px;
+  font-weight: 700;
+  font-size: 0.7em;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-ocean-400);
+  min-width: 48px;
+  flex-shrink: 0;
 }
 
 .message p {
@@ -287,72 +276,73 @@ main {
   flex: 1;
 }
 
-/* End session button */
+/* ─── End button — muted ocean tone ─────────────────────── */
+
 .end-btn {
-  background: var(--color-blush-300);
-  color: white;
-  border: none;
-  padding: 14px 28px;
-  border-radius: var(--radius-md);
+  background: var(--color-sable-200);
+  color: var(--color-ocean-600);
+  border: 1px solid var(--color-ocean-300);
+  padding: 12px 28px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
-  font-weight: 500;
-  font-size: 1em;
-  transition: all 0.3s ease;
-  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+  font-size: 0.9em;
+  transition: all 0.3s var(--ease-wave);
   align-self: center;
   order: 20;
 }
 
 .end-btn:hover {
-  transform: translateY(-2px);
-  background: var(--color-blush-500);
-  box-shadow: var(--shadow-md);
+  background: var(--color-coral-100);
+  border-color: var(--color-coral-300);
+  color: var(--color-coral-500);
 }
+
+/* ─── Error banner ───────────────────────────────────────── */
 
 .error-banner {
-  background: var(--color-danger);
-  color: white;
-  padding: 15px;
-  border-radius: 10px;
+  background: var(--color-coral-100);
+  color: var(--color-crisis);
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
   margin-bottom: 20px;
   text-align: center;
-  font-weight: 500;
+  font-weight: 600;
+  border: 1px solid var(--color-coral-200);
 }
 
-/* Thinking indicator */
+/* ─── Thinking dots — gentle wave motion ────────────────── */
+
 .thinking-dots {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   padding: 4px 0;
 }
 
 .thinking-dots span {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--color-anchor-400);
-  animation: bounce 1.2s infinite ease-in-out;
+  background: var(--color-algue-400);
+  animation: wave-dot 1.8s ease-in-out infinite;
 }
 
 .thinking-dots span:nth-child(2) {
-  animation-delay: 0.15s;
+  animation-delay: 0.2s;
 }
 
 .thinking-dots span:nth-child(3) {
-  animation-delay: 0.3s;
+  animation-delay: 0.4s;
 }
 
-@keyframes bounce {
-  0%, 60%, 100% {
-    transform: translateY(0);
-  }
-  30% {
-    transform: translateY(-5px);
-  }
+@keyframes wave-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
 }
 
-/* Exposure Image — interleaved display */
+/* ─── Exposure image ─────────────────────────────────────── */
+
 .exposure-image {
   margin: 0;
   order: 1;
@@ -366,10 +356,10 @@ main {
 }
 
 .exposure-image__level {
-  background: var(--color-anchor-400);
+  background: var(--color-algue-400);
   color: white;
   padding: 4px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   font-size: 0.85em;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -377,9 +367,9 @@ main {
 
 .exposure-image__frame {
   position: relative;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  background: var(--color-ground-900);
+  background: var(--color-ocean-200);
   min-height: 200px;
   display: flex;
   align-items: center;
@@ -394,7 +384,7 @@ main {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--color-ocean-600);
   font-size: 0.9em;
   z-index: 1;
 }
@@ -402,8 +392,8 @@ main {
 .exposure-image__spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.2);
-  border-top-color: var(--color-anchor-400);
+  border: 3px solid var(--color-ocean-200);
+  border-top-color: var(--color-algue-400);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -422,10 +412,10 @@ main {
   transform: scale(1);
 }
 
-/* Exposure placeholder — shown when no image yet */
 .exposure-image--empty {
   min-height: 180px;
-  background: var(--color-ground-200);
+  background: var(--color-ocean-50);
+  border: 1px solid var(--color-ocean-300);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -438,7 +428,7 @@ main {
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: var(--color-ground-600);
+  color: var(--color-ocean-600);
   font-size: 0.85em;
 }
 
@@ -448,13 +438,20 @@ main {
   opacity: 0.5;
 }
 
-/* Anxiety Meter */
+/* ─── Spin keyframe — used by image spinner ──────────────── */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── Anxiety meter — ocean themed ──────────────────────── */
+
 .anxiety-meter {
   margin: 0;
   padding: 20px;
-  background: var(--color-ground-100);
-  border-radius: 12px;
-  border: 1px solid var(--color-ground-300);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-ocean-300);
   order: 3;
 }
 
@@ -468,7 +465,7 @@ main {
 .anxiety-meter__label {
   font-weight: 600;
   font-size: 0.95em;
-  color: var(--color-ground-900);
+  color: var(--color-ocean-800);
 }
 
 .anxiety-meter__value {
@@ -483,7 +480,6 @@ main {
   margin-bottom: 16px;
 }
 
-/* Custom range slider */
 .anxiety-meter__slider {
   -webkit-appearance: none;
   appearance: none;
@@ -494,8 +490,8 @@ main {
     to right,
     var(--meter-color) 0%,
     var(--meter-color) var(--meter-pct),
-    var(--color-ground-300) var(--meter-pct),
-    var(--color-ground-300) 100%
+    var(--color-ocean-200) var(--meter-pct),
+    var(--color-ocean-200) 100%
   );
   outline: none;
   cursor: pointer;
@@ -509,7 +505,7 @@ main {
   border-radius: 50%;
   background: var(--meter-color);
   border: 3px solid white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(44, 74, 90, 0.2);
   cursor: grab;
   transition: transform 0.15s ease;
 }
@@ -525,12 +521,12 @@ main {
   border-radius: 50%;
   background: var(--meter-color);
   border: 3px solid white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(44, 74, 90, 0.2);
   cursor: grab;
 }
 
 .anxiety-meter__slider:focus-visible {
-  outline: 3px solid var(--color-anchor-400);
+  outline: 3px solid var(--color-algue-300);
   outline-offset: 4px;
   border-radius: 4px;
 }
@@ -544,7 +540,7 @@ main {
 
 .anxiety-meter__tick {
   font-size: 0.75em;
-  color: #767676;
+  color: var(--color-ocean-400);
   width: 16px;
   text-align: center;
 }
@@ -559,37 +555,30 @@ main {
   font-size: 0.9em;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: var(--color-anchor-400);
+  background: var(--color-algue-400);
   color: white;
-  box-shadow: 0 2px 8px rgba(74, 124, 138, 0.3);
+  box-shadow: var(--shadow-glow);
 }
 
 .anxiety-meter__btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 124, 138, 0.4);
-  background: var(--color-anchor-500);
+  background: var(--color-algue-500);
 }
 
 .anxiety-meter__btn.confirmed {
-  background: var(--color-success);
+  background: var(--color-algue-400);
   box-shadow: none;
   cursor: default;
   animation: confirm-flash 0.4s ease-out;
 }
 
 @keyframes confirm-flash {
-  0%   { box-shadow: 0 0 0 0 rgba(91, 155, 110, 0.6); }
-  50%  { box-shadow: 0 0 0 12px rgba(91, 155, 110, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(91, 155, 110, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(125, 188, 168, 0.6); }
+  50%  { box-shadow: 0 0 0 12px rgba(125, 188, 168, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(125, 188, 168, 0); }
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+/* ─── Crisis banner ──────────────────────────────────────── */
 
-/* Crisis banner */
 .crisis-banner {
   position: sticky;
   top: 0;
@@ -597,20 +586,20 @@ main {
   background: var(--color-crisis);
   color: #ffffff;
   padding: 16px 20px;
-  border-radius: 0 0 12px 12px;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
   display: flex;
   align-items: center;
   gap: 12px;
-  box-shadow: 0 4px 20px rgba(123, 45, 45, 0.4);
-  animation: crisis-appear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(196, 75, 59, 0.4);
+  animation: crisis-appear 0.3s var(--ease-float);
+  font-weight: 700;
   font-size: 1em;
   line-height: 1.5;
 }
 
 @keyframes crisis-appear {
   from { transform: translateY(-100%); opacity: 0; }
-  to   { transform: translateY(0);    opacity: 1; }
+  to   { transform: translateY(0);     opacity: 1; }
 }
 
 .crisis-banner__icon {
@@ -618,25 +607,27 @@ main {
   flex-shrink: 0;
 }
 
-/* Reassurance correction banner */
+/* ─── Reassurance banner — gentle coral hint ─────────────── */
+
 .reassurance-banner {
-  background: var(--color-blush-100);
-  color: #5a4a2f;
+  background: var(--color-coral-100);
+  color: var(--color-ocean-800);
   padding: 12px 16px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin-bottom: 12px;
-  border-left: 4px solid var(--color-blush-300);
+  border-left: 4px solid var(--color-coral-300);
   font-size: 0.9em;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
-/* End session confirmation overlay */
+/* ─── End session confirmation overlay ───────────────────── */
+
 .confirm-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(44, 74, 90, 0.3);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -650,11 +641,9 @@ main {
 }
 
 .confirm-dialog {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.9);
-  border-radius: 16px;
+  background: var(--color-sable-100);
+  border: 1px solid var(--color-ocean-300);
+  border-radius: var(--radius-lg);
   padding: 28px;
   max-width: 360px;
   width: 90%;
@@ -665,14 +654,14 @@ main {
 .confirm-dialog h2 {
   margin: 0 0 8px;
   font-size: 1.1em;
-  color: var(--color-ground-900);
+  color: var(--color-ocean-800);
 }
 
 .confirm-dialog p {
   margin: 0 0 24px;
-  color: var(--color-ground-600);
+  color: var(--color-ocean-600);
   font-size: 0.9em;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .confirm-dialog__actions {
@@ -683,48 +672,58 @@ main {
 .confirm-dialog__cancel {
   flex: 1;
   padding: 10px;
-  border: 1px solid var(--color-ground-300);
-  border-radius: 8px;
+  border: 1px solid var(--color-ocean-300);
+  border-radius: var(--radius-md);
   background: white;
-  color: var(--color-ground-900);
-  font-weight: 500;
+  color: var(--color-ocean-800);
+  font-weight: 600;
   cursor: pointer;
 }
 
 .confirm-dialog__cancel:hover {
-  background: var(--color-ground-100);
+  background: var(--color-ocean-50);
 }
 
 .confirm-dialog__confirm {
   flex: 1;
   padding: 10px;
   border: none;
-  border-radius: 8px;
-  background: var(--color-blush-300);
+  border-radius: var(--radius-md);
+  background: var(--color-coral-400);
   color: white;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: background 0.2s ease;
 }
 
 .confirm-dialog__confirm:hover {
-  background: var(--color-blush-500);
+  background: var(--color-coral-500);
 }
 
-/* Responsive */
+/* ─── Responsive ─────────────────────────────────────────── */
+
 @media (max-width: 768px) {
   .app {
-    padding: 10px;
-    padding-top: max(10px, env(safe-area-inset-top));
-    padding-bottom: max(10px, env(safe-area-inset-bottom));
+    padding: 12px;
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  header {
+    padding: 20px 16px;
   }
 
   header h1 {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
+  }
+
+  .welcome {
+    padding: 32px 20px;
   }
 
   .session {
-    padding: 15px;
+    padding: 16px;
+    gap: 16px;
   }
 
   .transcript-panel {
@@ -732,15 +731,14 @@ main {
   }
 
   .message.user {
-    margin-left: 20px;
+    margin-left: 16px;
   }
 
   .message.assistant {
-    margin-right: 20px;
+    margin-right: 16px;
   }
 
   .end-btn {
-    padding: 16px 32px;
-    min-width: 160px;
+    padding: 14px 32px;
   }
 }

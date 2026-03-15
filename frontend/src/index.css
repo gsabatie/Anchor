@@ -1,64 +1,67 @@
 :root {
-  /* Safe Harbor pastel palette */
+  /* Fond Marin — Illustrated Ocean Floor */
 
-  /* Ground — warm parchment neutrals */
-  --color-ground-50:  #FDFBF9;
-  --color-ground-100: #F8F5F1;
-  --color-ground-200: #F0EBE4;
-  --color-ground-300: #E2DCD4;
-  --color-ground-600: #8A8279;
-  --color-ground-900: #3D3833;
+  /* Ocean — soft luminous blues */
+  --color-ocean-50: #F2F8FA;    /* Lightest — like light through shallow water */
+  --color-ocean-100: #E8F4F8;   /* Page background */
+  --color-ocean-200: #D0E8EF;   /* Card surfaces */
+  --color-ocean-300: #B5D8E3;   /* Borders, subtle dividers */
+  --color-ocean-400: #8CC2D3;   /* Decorative elements */
+  --color-ocean-600: #5A9AAE;   /* Muted text */
+  --color-ocean-800: #2C4A5A;   /* Primary text — deep ocean blue, NOT black */
 
-  /* Anchor — lavender */
-  --color-anchor-100: #F0ECF6;
-  --color-anchor-200: #DDD5EA;
-  --color-anchor-300: #C4B6D9;
-  --color-anchor-400: #9B84BF;
-  --color-anchor-500: #7E69A3;
+  /* Coral — warm organic accent */
+  --color-coral-100: #FDF0ED;   /* Coral tint bg */
+  --color-coral-200: #F8D5CC;   /* Coral hover */
+  --color-coral-300: #F0B0A0;   /* Coral accent */
+  --color-coral-400: #E8836B;   /* PRIMARY CORAL — warm, organic */
+  --color-coral-500: #D46B53;   /* Coral hover/active */
 
-  /* Sage — soft green */
-  --color-sage-100: #EEF3EC;
-  --color-sage-300: #B8CDB2;
-  --color-sage-500: #7FA676;
+  /* Algue — sea green accent */
+  --color-algue-100: #EDF6F3;   /* Green tint bg */
+  --color-algue-200: #C5E2D8;   /* Green hover */
+  --color-algue-300: #9DD1BF;   /* Green accent */
+  --color-algue-400: #7DBCA8;   /* PRIMARY GREEN — calm, natural */
+  --color-algue-500: #5FA68E;   /* Green hover/active */
 
-  /* Blush — warm rose */
-  --color-blush-100: #FBF0EE;
-  --color-blush-300: #E8C5BF;
-  --color-blush-500: #C4918A;
+  /* Sable — sandy warm neutrals */
+  --color-sable-100: #FBF8F5;   /* Warm white — like sand under water */
+  --color-sable-200: #F5EFE8;   /* Card bg */
+  --color-sable-300: #E8DFD4;   /* Subtle borders */
 
-  /* Anxiety scale */
-  --color-calm:  #8BBF9A;
-  --color-mild:  #C9B87A;
-  --color-high:  #D4A07A;
-  --color-peak:  #CF8E8E;
-  --color-crisis: #A85656;
+  /* Anxiety scale — sea green to coral */
+  --color-calm: #7DBCA8;        /* 0-3 — calm sea green */
+  --color-mild: #A8C98F;        /* 4-5 — seagrass green */
+  --color-high: #E8B86B;        /* 6-7 — warm sand/amber */
+  --color-peak: #E8836B;        /* 8-10 — coral */
+  --color-crisis: #C44B3B;      /* Emergency — deeper coral/red */
 
-  /* Semantic aliases */
-  --color-success: var(--color-sage-500);
-  --color-warning: var(--color-mild);
-  --color-danger:  var(--color-peak);
+  /* Semantic */
+  --color-success: var(--color-algue-400);
+  --color-warning: var(--color-high);
+  --color-danger: var(--color-crisis);
 
-  /* Shadows */
-  --shadow-sm:   0 2px 8px rgba(61, 56, 51, 0.06);
-  --shadow-md:   0 4px 16px rgba(61, 56, 51, 0.08);
-  --shadow-lg:   0 8px 32px rgba(61, 56, 51, 0.12);
-  --shadow-glow: 0 0 20px rgba(155, 132, 191, 0.25);
+  /* Shadows — soft, warm, like light through water */
+  --shadow-sm: 0 2px 8px rgba(44, 74, 90, 0.06);
+  --shadow-md: 0 4px 16px rgba(44, 74, 90, 0.08);
+  --shadow-lg: 0 8px 32px rgba(44, 74, 90, 0.12);
+  --shadow-glow: 0 0 20px rgba(125, 188, 168, 0.3);
 
-  /* Radii */
-  --radius-sm:   12px;
-  --radius-md:   20px;
-  --radius-lg:   28px;
+  /* Radii — very rounded, organic like sea pebbles */
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
   --radius-pill: 9999px;
 
-  /* Easing */
-  --ease-soft:   cubic-bezier(0.25, 0.1, 0.25, 1);
-  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Easing — gentle, wave-like */
+  --ease-wave: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-float: cubic-bezier(0.34, 1.2, 0.64, 1);
 
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-  line-height: 1.5;
+  font-family: 'Nunito', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.6;
   font-weight: 400;
-  color: var(--color-ground-900);
-  background-color: var(--color-ground-50);
+  color: var(--color-ocean-800);
+  background-color: var(--color-ocean-100);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -66,88 +69,92 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: var(--color-anchor-400);
-  text-decoration: inherit;
-}
-a:hover {
-  color: var(--color-anchor-500);
-}
-
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: radial-gradient(ellipse at 50% 30%, rgba(240, 236, 246, 0.5) 0%, var(--color-ground-50) 70%);
+  background:
+    linear-gradient(180deg,
+      var(--color-ocean-100) 0%,
+      var(--color-ocean-200) 40%,
+      var(--color-sable-200) 100%
+    );
+  background-attachment: fixed;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* Underwater ambient light — subtle caustic-like patterns */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(125, 188, 168, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 60%, rgba(232, 131, 107, 0.08) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 80%, rgba(140, 194, 211, 0.1) 0%, transparent 45%);
+  pointer-events: none;
+  z-index: 0;
 }
 
-button {
-  border-radius: var(--radius-lg);
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: var(--color-ground-200);
-  color: var(--color-ground-900);
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: var(--color-anchor-400);
-}
-button:focus,
-button:focus-visible {
-  outline: 3px solid var(--color-anchor-300);
-  outline-offset: 2px;
-}
-
-/* Glass card utility */
-.glass-card {
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-}
-
-@supports not (backdrop-filter: blur(20px)) {
-  .glass-card {
-    background: rgba(255, 255, 255, 0.85);
-  }
-}
-
-/* Aurora ambient background animation */
+/* Floating bubbles animation (prefers-reduced-motion gated) */
 @media (prefers-reduced-motion: no-preference) {
-  .app::before {
+  body::after {
     content: '';
     position: fixed;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
+    inset: 0;
     background:
-      radial-gradient(ellipse at 20% 50%, rgba(155, 132, 191, 0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 20%, rgba(127, 166, 118, 0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 80%, rgba(196, 145, 138, 0.08) 0%, transparent 50%);
-    animation: aurora 25s ease-in-out infinite alternate;
+      radial-gradient(circle 3px at 15% 70%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(circle 2px at 45% 85%, rgba(255,255,255,0.25) 0%, transparent 100%),
+      radial-gradient(circle 4px at 75% 75%, rgba(255,255,255,0.2) 0%, transparent 100%),
+      radial-gradient(circle 2px at 85% 90%, rgba(255,255,255,0.3) 0%, transparent 100%);
+    animation: bubbles-float 20s ease-in-out infinite alternate;
     pointer-events: none;
     z-index: 0;
   }
 
-  @keyframes aurora {
-    0%   { transform: translate(0, 0) rotate(0deg); }
-    33%  { transform: translate(2%, -1%) rotate(1deg); }
-    66%  { transform: translate(-1%, 2%) rotate(-1deg); }
-    100% { transform: translate(1%, -2%) rotate(0.5deg); }
+  @keyframes bubbles-float {
+    0% { transform: translateY(0); opacity: 0.6; }
+    50% { transform: translateY(-15px); opacity: 0.9; }
+    100% { transform: translateY(-5px); opacity: 0.7; }
   }
+}
+
+a {
+  font-weight: 600;
+  color: var(--color-algue-400);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--color-algue-500);
+}
+
+h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+/* Buttons — rounded, soft, like pebbles */
+button {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-ocean-300);
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 600;
+  font-family: inherit;
+  background-color: var(--color-sable-100);
+  color: var(--color-ocean-800);
+  cursor: pointer;
+  transition: all 0.3s var(--ease-wave);
+}
+button:hover {
+  border-color: var(--color-algue-400);
+  background-color: var(--color-algue-100);
+}
+button:focus,
+button:focus-visible {
+  outline: 3px solid var(--color-algue-300);
+  outline-offset: 2px;
 }
 
 /* Protect all animations for users with vestibular disorders */

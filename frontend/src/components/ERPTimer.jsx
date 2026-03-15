@@ -11,11 +11,11 @@ const PHASE_LABELS = {
 }
 
 const PHASE_COLORS = {
-  opening: '#8BBF9A',
-  rising: '#C9B87A',
-  peak: '#CF8E8E',
-  falling: '#9B84BF',
-  closing: '#8BBF9A',
+  opening: '#7DBCA8',
+  rising: '#E8B86B',
+  peak: '#E8836B',
+  falling: '#7DBCA8',
+  closing: '#5FA68E',
 }
 
 function formatTime(seconds) {
@@ -141,7 +141,10 @@ export default function ERPTimer({ data }) {
             {finished ? t('timerDone') : formatTime(remaining)}
           </span>
           {!finished && (
-            <span className="erp-timer__phase" style={{ color: phaseColor }}>
+            <span
+              className={`erp-timer__phase${phase === 'peak' ? ' erp-timer__phase--peak' : ''}`}
+              style={{ color: phaseColor }}
+            >
               {t(PHASE_LABELS[phase])}
             </span>
           )}
