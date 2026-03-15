@@ -236,8 +236,26 @@ async def _receive_from_client(
 
                 elif msg_type == "control":
                     action = msg.get("action")
-                    logger.debug("Received control message: action=%s from IP=%s", action, client_ip)
-                    # Handle control actions (end_session, pause, etc.)
+                    logger.info("Received control message: action=%s from IP=%s", action, client_ip)
+
+                    if action == "end_session":
+                        # Persist session end to Firestore and close Gemini
+                        session_id = gemini_session.session_state.get("session_id")
+                        if session_id:
+                            try:
+                                from agent.tools.session_tracker import session_tracker
+                                loop = asyncio.get_running_loop()
+                                await loop.run_in_executor(
+                                    None,
+                                    lambda: session_tracker(
+                                        action="end_session",
+                                        session_data={"session_id": session_id},
+                                    ),
+                                )
+                                logger.info("Session %s ended via control action", session_id)
+                            except Exception as e:
+                                logger.error("Failed to end session %s: %s", session_id, e)
+                        return  # exits _receive_from_client, triggering cleanup
 
     except WebSocketDisconnect:
         logger.info("Client disconnected (receive task)")
@@ -253,11 +271,11 @@ async def _send_to_client(
             try:
                 msg_type = response.get("type", "unknown")
                 if msg_type == "audio":
-                    logger.info("-> client: audio b64_len=%d", len(response.get("data", "")))
+                    logger.debug("-> client: audio b64_len=%d", len(response.get("data", "")))
                 elif msg_type == "exposure_image":
                     logger.info("-> client: exposure_image level=%s", response.get("level"))
                 else:
-                    logger.info("-> client: %s", msg_type)
+                    logger.debug("-> client: %s", msg_type)
                 await websocket.send_json(response)
             except Exception as e:
                 logger.error(f"Error sending to client: {e}")

@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import logging
+import re
 from typing import AsyncGenerator
 
 from google import genai
@@ -28,6 +29,31 @@ from agent.tools.erp_timer import erp_timer
 from agent.tools.session_tracker import session_tracker
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Transcription cleaning — Gemini native-audio transcription is noisy.
+# It often contains <noise> tags, stray non-Latin characters from
+# mis-recognition, and very short meaningless fragments.
+# ---------------------------------------------------------------------------
+_NOISE_TAG_RE = re.compile(r"<[^>]*>")
+# Keep Latin, common accented chars, digits, basic punctuation, whitespace
+_ALLOWED_CHARS_RE = re.compile(r"[^a-zA-ZÀ-ÿ0-9\s.,;:!?'\-…\"()]+")
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def _clean_transcription(text: str) -> str:
+    """Clean raw Gemini input transcription for display.
+
+    Removes noise tags, stray non-Latin characters, and collapses whitespace.
+    Returns empty string if the cleaned result is too short to be meaningful.
+    """
+    cleaned = _NOISE_TAG_RE.sub("", text)
+    cleaned = _ALLOWED_CHARS_RE.sub(" ", cleaned)
+    cleaned = _WHITESPACE_RE.sub(" ", cleaned).strip()
+    # Discard fragments shorter than 2 real characters (e.g. "s", " ")
+    if len(cleaned) < 2:
+        return ""
+    return cleaned
 
 # Map tool names to callables
 TOOLS = {
@@ -438,11 +464,11 @@ class GeminiLiveSession:
 
             # Handle input audio transcription (what the user said)
             if hasattr(content, "input_transcription") and content.input_transcription:
-                user_text = content.input_transcription.text
-                if user_text:
-                    logger.debug("input_transcription received: length=%d chars", len(user_text))
-                    # Check for crisis language in what the user said
-                    crisis = crisis_guard(user_text)
+                raw_text = content.input_transcription.text
+                if raw_text:
+                    logger.debug("input_transcription received: length=%d chars", len(raw_text))
+                    # Crisis guard runs on RAW text (before cleaning)
+                    crisis = crisis_guard(raw_text)
                     if crisis["crisis_detected"]:
                         logger.critical("CRISIS DETECTED in user speech: %r", crisis["matched_pattern"])
                         messages.append({
@@ -450,10 +476,13 @@ class GeminiLiveSession:
                             "redirect": crisis["redirect"],
                             "matched_pattern": crisis["matched_pattern"],
                         })
-                    messages.append({
-                        "type": "user_transcript",
-                        "content": user_text,
-                    })
+                    # Clean transcription for display (remove noise, stray chars)
+                    clean_text = _clean_transcription(raw_text)
+                    if clean_text:
+                        messages.append({
+                            "type": "user_transcript",
+                            "content": clean_text,
+                        })
 
             # Handle output audio transcription (native audio models)
             if hasattr(content, "output_transcription") and content.output_transcription:
@@ -478,11 +507,11 @@ class GeminiLiveSession:
                     })
 
             # On turn complete, flush any accumulated transcription
-            if content.turn_complete:
+            if getattr(content, "turn_complete", False):
                 logger.debug("turn_complete received")
                 messages.append({"type": "turn_complete"})
 
-            if content.model_turn and content.model_turn.parts:
+            if getattr(content, "model_turn", None) and content.model_turn.parts:
                 for part in content.model_turn.parts:
                     # Skip internal thinking/reasoning parts
                     if getattr(part, "thought", False):
@@ -603,7 +632,7 @@ class GeminiLiveSession:
                 toc_type,
             )
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 result = await asyncio.wait_for(
                     loop.run_in_executor(
                         None,
@@ -650,7 +679,7 @@ class GeminiLiveSession:
         timeout = TOOL_TIMEOUTS.get(tool_name, 15.0)
         try:
             # Tools are sync functions, run in executor to avoid blocking.
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             result = await asyncio.wait_for(
                 loop.run_in_executor(None, lambda: tool_fn(**args)),
                 timeout=timeout,

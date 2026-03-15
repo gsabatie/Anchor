@@ -20,13 +20,18 @@ function StopIcon() {
   )
 }
 
-export default function AudioCapture({ sendAudio }) {
+export default function AudioCapture({ sendAudio, muted }) {
   const { t } = useTranslation()
   const canvasRef = useRef(null)
   const rafRef = useRef(null)
 
+  const mutedRef = useRef(muted)
+  mutedRef.current = muted
+
   const handleAudioData = useCallback(
     (pcm16Buffer) => {
+      // Suppress mic input while Anchor is speaking to prevent echo feedback
+      if (mutedRef.current) return
       sendAudio?.(pcm16Buffer)
     },
     [sendAudio],

@@ -41,6 +41,7 @@ export function useWebSocket(token) {
   const [isThinking, setIsThinking] = useState(false)
   const [crisisAlert, setCrisisAlert] = useState(null)
   const [reassuranceViolation, setReassuranceViolation] = useState(null)
+  const [anchorSpeaking, setAnchorSpeaking] = useState(false)
 
   /**
    * Get or create the playback AudioContext.
@@ -186,6 +187,21 @@ export function useWebSocket(token) {
       // Guard against binary frames — only parse string messages as JSON
       if (typeof event.data !== 'string') return
 
+      // Finalize any streaming user message (remove streaming flag)
+      // Called when assistant starts responding, so user speech is complete.
+      const finalizeUserStream = () => {
+        setTranscript(prev => {
+          const last = prev[prev.length - 1]
+          if (last && last.role === 'user' && last.streaming) {
+            return [
+              ...prev.slice(0, -1),
+              { role: 'user', content: last.content }
+            ]
+          }
+          return prev
+        })
+      }
+
       try {
         const msg = JSON.parse(event.data)
 
@@ -201,6 +217,7 @@ export function useWebSocket(token) {
 
           case 'text':
             setIsThinking(false)
+            finalizeUserStream()
             setTranscript(prev => [
               ...prev,
               { role: 'assistant', content: msg.content }
@@ -209,6 +226,7 @@ export function useWebSocket(token) {
 
           case 'transcript_delta':
             setIsThinking(false)
+            finalizeUserStream()
             setTranscript(prev => {
               const last = prev[prev.length - 1]
               if (last && last.role === 'assistant' && last.streaming) {
@@ -228,6 +246,7 @@ export function useWebSocket(token) {
 
           case 'turn_complete':
             setIsThinking(false)
+            setAnchorSpeaking(false)
             setTranscript(prev => {
               const last = prev[prev.length - 1]
               if (last && last.streaming) {
@@ -242,6 +261,8 @@ export function useWebSocket(token) {
 
           case 'audio':
             setIsThinking(false)
+            setAnchorSpeaking(true)
+            finalizeUserStream()
             if (msg.data) {
               playPcmAudio(msg.data, msg.mime_type)
             }
@@ -285,8 +306,24 @@ export function useWebSocket(token) {
             break
 
           case 'user_transcript':
-            // Input transcription is used for crisis_guard on the backend.
-            // Not displayed — native-audio transcription is too noisy for UI.
+            if (msg.content) {
+              setIsThinking(true)
+              setTranscript(prev => {
+                const last = prev[prev.length - 1]
+                if (last && last.role === 'user' && last.streaming) {
+                  // Append to current streaming user message
+                  return [
+                    ...prev.slice(0, -1),
+                    { ...last, content: last.content + msg.content }
+                  ]
+                }
+                // Start a new streaming user message
+                return [
+                  ...prev,
+                  { role: 'user', content: msg.content, streaming: true }
+                ]
+              })
+            }
             break
 
           case 'reconnecting':
@@ -369,8 +406,8 @@ export function useWebSocket(token) {
 
   const sendAudio = useCallback((audioBuffer) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      setIsThinking(true)
-      // Send raw PCM16 bytes directly as binary
+      // Do NOT set isThinking here — audio chunks stream continuously
+      // (~8x/sec). Thinking state is set on turn_complete or text send.
       wsRef.current.send(audioBuffer)
     }
   }, [])
@@ -407,6 +444,7 @@ export function useWebSocket(token) {
     isThinking,
     crisisAlert,
     reassuranceViolation,
+    anchorSpeaking,
     connect,
     disconnect,
     sendAudio,

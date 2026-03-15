@@ -35,6 +35,7 @@ function App() {
     crisisAlert,
     reassuranceViolation,
     ensureAudioResumed,
+    anchorSpeaking,
   } = useWebSocket(sessionActive ? token : null)
 
   // P4 — Auto-scroll transcript when new messages arrive
@@ -128,7 +129,7 @@ function App() {
             <ExposureImage data={exposureImage} />
             <ERPTimer data={timerData} />
             <AnxietyMeter onReport={handleAnxietyReport} />
-            <AudioCapture sendAudio={sendAudio} />
+            <AudioCapture sendAudio={sendAudio} muted={anchorSpeaking} />
 
             <div className="transcript-panel" aria-live="polite">
               {transcript && transcript.length > 0 ? (
