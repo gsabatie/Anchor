@@ -35,6 +35,16 @@ async def session_ws(websocket: WebSocket):
 
     await websocket.accept()
     gemini_session = None
+    keepalive_task = None
+
+    async def _keepalive(ws: WebSocket) -> None:
+        """Send a ping every 30 seconds to prevent proxy timeouts."""
+        try:
+            while True:
+                await asyncio.sleep(30)
+                await ws.send_json({"type": "ping"})
+        except Exception:
+            pass
 
     try:
         # Initialize and connect Gemini Live session
@@ -55,6 +65,9 @@ async def session_ws(websocket: WebSocket):
             "status": "connected",
             "message": "Hi, I'm Anchor. I'm here with you. How are you feeling right now?",
         })
+
+        # Start keepalive background task
+        keepalive_task = asyncio.create_task(_keepalive(websocket))
 
         # Create tasks for bidirectional communication
         receive_task = asyncio.create_task(
@@ -92,6 +105,12 @@ async def session_ws(websocket: WebSocket):
         except Exception:
             pass
     finally:
+        if keepalive_task is not None:
+            keepalive_task.cancel()
+            try:
+                await keepalive_task
+            except asyncio.CancelledError:
+                pass
         if gemini_session:
             await gemini_session.disconnect()
 

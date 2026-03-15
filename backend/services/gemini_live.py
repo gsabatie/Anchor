@@ -11,6 +11,15 @@ from google.genai import types
 from config import GEMINI_LIVE_MODEL as LIVE_MODEL
 
 from agent.prompts.system_prompt import SYSTEM_PROMPT
+
+# Per-tool timeouts (seconds) — calibrated to expected latency
+TOOL_TIMEOUTS = {
+    "reassurance_guard": 2.0,
+    "erp_timer": 2.0,
+    "session_tracker": 5.0,
+    "hierarchy_builder": 30.0,
+    "image_generator": 45.0,
+}
 from agent.tools.reassurance_guard import reassurance_guard
 from agent.tools.hierarchy_builder import hierarchy_builder
 from agent.tools.image_generator import image_generator
@@ -147,13 +156,30 @@ class GeminiLiveSession:
                 parts=[types.Part(text=SYSTEM_PROMPT)]
             ),
             "tools": [types.Tool(function_declarations=TOOL_DECLARATIONS)],
+            # Therapeutic context: allow discussions about anxiety/distress
+            "safety_settings": [
+                types.SafetySetting(
+                    category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                    threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                ),
+            ],
+            # Emotional awareness for therapeutic voice
+            "enable_affective_dialog": True,
+            # Long ERP sessions (20-40 min) benefit from context compression
+            "context_window_compression": True,
+            # VAD: automatic activity detection keeps default sensitivity.
+            # turn_coverage ensures the model waits for complete user utterances.
+            "realtime_input_config": types.RealtimeInputConfig(
+                automatic_activity_detection=True,
+            ),
         }
 
         # Native audio models generate audio directly — transcription
-        # gives us the text equivalent. Non-native models (e.g. gemini-2.0-flash)
-        # already emit text parts alongside TTS audio.
+        # gives us the text equivalent for logging and reassurance checking.
         if is_native_audio:
             config["output_audio_transcription"] = types.AudioTranscriptionConfig()
+            # Log what the user says for session tracking and clinical records
+            config["input_audio_transcription"] = types.AudioTranscriptionConfig()
 
         return config
 
@@ -266,6 +292,15 @@ class GeminiLiveSession:
         # Handle server content (text + audio + transcription)
         if response.server_content:
             content = response.server_content
+
+            # Handle input audio transcription (what the user said)
+            if hasattr(content, "input_transcription") and content.input_transcription:
+                user_text = content.input_transcription.text
+                if user_text:
+                    messages.append({
+                        "type": "user_transcript",
+                        "content": user_text,
+                    })
 
             # Handle output audio transcription (native audio models)
             if hasattr(content, "output_transcription") and content.output_transcription:
@@ -393,18 +428,17 @@ class GeminiLiveSession:
             logger.error(f"Unknown tool: {tool_name}")
             return {"error": f"Unknown tool: {tool_name}"}
 
+        timeout = TOOL_TIMEOUTS.get(tool_name, 15.0)
         try:
             # Tools are sync functions, run in executor to avoid blocking.
-            # Timeout prevents the Gemini connection from dropping while
-            # waiting for slow external services (Vertex AI, Firestore).
             loop = asyncio.get_event_loop()
             result = await asyncio.wait_for(
                 loop.run_in_executor(None, lambda: tool_fn(**args)),
-                timeout=15.0,
+                timeout=timeout,
             )
             logger.info(f"Tool {tool_name} completed")
         except asyncio.TimeoutError:
-            logger.error(f"Tool {tool_name} timed out after 15s")
+            logger.error(f"Tool {tool_name} timed out after {timeout}s")
             return {"error": f"Tool {tool_name} timed out"}
         except Exception as e:
             logger.error(f"Tool {tool_name} failed: {e}")

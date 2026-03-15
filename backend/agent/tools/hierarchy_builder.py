@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 from datetime import datetime, timezone
 
 from google import genai
@@ -15,6 +16,17 @@ from config import GEMINI_TEXT_MODEL
 
 MAX_DESCRIPTION_LENGTH = 2000
 FIRESTORE_COLLECTION = "hierarchies"
+MAX_RETRIES = 3
+RETRY_BASE_DELAY = 1.0  # seconds
+
+_genai_client = None
+
+
+def _get_client():
+    global _genai_client
+    if _genai_client is None:
+        _genai_client = genai.Client()
+    return _genai_client
 
 _GENERATION_PROMPT = """\
 You are an ERP (Exposure and Response Prevention) therapy specialist \
@@ -73,21 +85,34 @@ def hierarchy_builder(toc_description: str, toc_type: str) -> dict:
         toc_description=toc_description,
     )
 
-    try:
-        client = genai.Client()
-        response = client.models.generate_content(
-            model=GEMINI_TEXT_MODEL,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=_RESPONSE_SCHEMA,
-                temperature=0.7,
-            ),
-        )
-        levels = json.loads(response.text)
-    except Exception as exc:
-        logger.error("Gemini hierarchy generation failed: %s", exc)
-        return {"error": f"Failed to generate hierarchy: {exc}"}
+    for attempt in range(MAX_RETRIES):
+        try:
+            client = _get_client()
+            response = client.models.generate_content(
+                model=GEMINI_TEXT_MODEL,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=_RESPONSE_SCHEMA,
+                    temperature=0.7,
+                    safety_settings=[
+                        types.SafetySetting(
+                            category=types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                            threshold=types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+                        ),
+                    ],
+                ),
+            )
+            levels = json.loads(response.text)
+            break
+        except Exception as exc:
+            if attempt < MAX_RETRIES - 1:
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning("Gemini call failed (attempt %d/%d), retrying in %.1fs: %s", attempt + 1, MAX_RETRIES, delay, exc)
+                time.sleep(delay)
+            else:
+                logger.error("Gemini hierarchy generation failed after %d attempts: %s", MAX_RETRIES, exc)
+                return {"error": f"Failed to generate hierarchy: {exc}"}
 
     if not isinstance(levels, list) or len(levels) != 10:
         return {"error": f"Expected 10 levels from Gemini, got {len(levels) if isinstance(levels, list) else type(levels).__name__}"}

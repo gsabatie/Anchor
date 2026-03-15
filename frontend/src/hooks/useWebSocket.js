@@ -7,10 +7,15 @@ const WS_URL = `${WS_BASE}/ws/session`
 // Gemini Live outputs PCM16 at 24kHz
 const PLAYBACK_SAMPLE_RATE = 24000
 
+const MAX_RECONNECT_ATTEMPTS = 3
+
 export function useWebSocket(token) {
   const wsRef = useRef(null)
   const audioCtxRef = useRef(null)
   const nextPlayTimeRef = useRef(0)
+  const reconnectAttemptsRef = useRef(0)
+  const reconnectTimerRef = useRef(null)
+  const intentionalDisconnectRef = useRef(false)
   const [status, setStatus] = useState('disconnected')
   const [exposureImage, setExposureImage] = useState(null)
   const [timerData, setTimerData] = useState(null)
@@ -66,24 +71,45 @@ export function useWebSocket(token) {
     }
   }, [getAudioContext])
 
-  useEffect(() => {
-    if (!token) return
+  const connect = useCallback((connectToken) => {
+    if (!connectToken) return
 
-    const url = `${WS_URL}?token=${encodeURIComponent(token)}`
+    // Mark this as an intentional new connection attempt
+    intentionalDisconnectRef.current = false
+    reconnectAttemptsRef.current = 0
+
+    const url = `${WS_URL}?token=${encodeURIComponent(connectToken)}`
     const ws = new WebSocket(url)
     wsRef.current = ws
 
     ws.binaryType = 'arraybuffer'
 
     ws.onopen = () => {
+      reconnectAttemptsRef.current = 0
       setStatus('connected')
       setError(null)
     }
 
     ws.onclose = (event) => {
       console.log('WebSocket disconnected:', event.code, event.reason)
-      setStatus('disconnected')
       setIsThinking(false)
+
+      if (
+        !intentionalDisconnectRef.current &&
+        reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS
+      ) {
+        const delay = Math.pow(2, reconnectAttemptsRef.current) * 1000
+        reconnectAttemptsRef.current += 1
+        console.log(
+          `Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`
+        )
+        setStatus('reconnecting')
+        reconnectTimerRef.current = setTimeout(() => {
+          connect(connectToken)
+        }, delay)
+      } else {
+        setStatus('disconnected')
+      }
     }
 
     ws.onerror = () => {
@@ -95,6 +121,10 @@ export function useWebSocket(token) {
         const msg = JSON.parse(event.data)
 
         switch (msg.type) {
+          case 'ping':
+            // Keepalive ping from server — no action needed
+            break
+
           case 'connection':
             setIsThinking(false)
             setTranscript([{ role: 'assistant', content: msg.message }])
@@ -174,15 +204,42 @@ export function useWebSocket(token) {
         console.warn('Failed to parse WebSocket message:', err)
       }
     }
+  }, [playPcmAudio])
+
+  const disconnect = useCallback(() => {
+    intentionalDisconnectRef.current = true
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current)
+      reconnectTimerRef.current = null
+    }
+    if (wsRef.current) {
+      wsRef.current.close()
+      wsRef.current = null
+    }
+    setStatus('disconnected')
+  }, [])
+
+  useEffect(() => {
+    if (!token) return
+
+    connect(token)
 
     return () => {
-      ws.close()
+      intentionalDisconnectRef.current = true
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current)
+        reconnectTimerRef.current = null
+      }
+      if (wsRef.current) {
+        wsRef.current.close()
+        wsRef.current = null
+      }
       if (audioCtxRef.current) {
         audioCtxRef.current.close()
         audioCtxRef.current = null
       }
     }
-  }, [token, playPcmAudio])
+  }, [token, connect])
 
   const sendAudio = useCallback((audioBuffer) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -222,6 +279,8 @@ export function useWebSocket(token) {
     transcript,
     error,
     isThinking,
+    connect,
+    disconnect,
     sendAudio,
     sendMessage,
     sendControl,

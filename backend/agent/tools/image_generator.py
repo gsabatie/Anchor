@@ -4,6 +4,7 @@ import base64
 import logging
 import os
 import re
+import time
 
 import vertexai
 from vertexai.preview.vision_models import ImageGenerationModel
@@ -39,7 +40,11 @@ OCD category context: {toc_type}. \
 The image must look like a real everyday photograph, not staged or dramatic.\
 """
 
+MAX_RETRIES = 2
+RETRY_BASE_DELAY = 2.0  # seconds
+
 _vertexai_initialized = False
+_imagen_model = None
 
 
 def _ensure_vertex_init():
@@ -50,6 +55,14 @@ def _ensure_vertex_init():
             location=os.getenv("VERTEX_LOCATION", "europe-west1"),
         )
         _vertexai_initialized = True
+
+
+def _get_imagen_model():
+    global _imagen_model
+    if _imagen_model is None:
+        _ensure_vertex_init()
+        _imagen_model = ImageGenerationModel.from_pretrained(IMAGEN_MODEL)
+    return _imagen_model
 
 
 def _get_intensity(level: int) -> str:
@@ -100,19 +113,25 @@ def image_generator(situation: str, level: int, toc_type: str) -> dict:
     safe_situation = _sanitize_prompt(situation)
     prompt = _build_prompt(safe_situation, level, toc_type.strip())
 
-    try:
-        _ensure_vertex_init()
-        model = ImageGenerationModel.from_pretrained(IMAGEN_MODEL)
-        response = model.generate_images(
-            prompt=prompt,
-            number_of_images=1,
-            aspect_ratio="4:3",
-            negative_prompt=_NEGATIVE_PROMPT,
-            safety_filter_level="block_few",
-        )
-    except Exception as exc:
-        logger.error("Imagen generation failed: %s", exc)
-        return {"error": f"Image generation failed: {exc}"}
+    for attempt in range(MAX_RETRIES):
+        try:
+            model = _get_imagen_model()
+            response = model.generate_images(
+                prompt=prompt,
+                number_of_images=1,
+                aspect_ratio="4:3",
+                negative_prompt=_NEGATIVE_PROMPT,
+                safety_filter_level="block_few",
+            )
+            break
+        except Exception as exc:
+            if attempt < MAX_RETRIES - 1:
+                delay = RETRY_BASE_DELAY * (2 ** attempt)
+                logger.warning("Imagen call failed (attempt %d/%d), retrying in %.1fs: %s", attempt + 1, MAX_RETRIES, delay, exc)
+                time.sleep(delay)
+            else:
+                logger.error("Imagen generation failed after %d attempts: %s", MAX_RETRIES, exc)
+                return {"error": f"Image generation failed: {exc}"}
 
     if not response.images:
         logger.warning("Imagen returned no images for prompt: %s", prompt[:120])
