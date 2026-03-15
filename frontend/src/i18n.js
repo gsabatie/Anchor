@@ -49,6 +49,8 @@ const resources = {
       welcomeHeading: 'Prêt pour ta séance ?',
       welcomeBody: 'Anchor t\'accompagne dans des exercices d\'Exposition avec Prévention de la Réponse (ERP). Installe-toi dans un endroit calme, avec un casque si possible.',
       welcomeNote: 'Anchor n\'est pas un thérapeute. C\'est un compagnon d\'entraînement ERP.',
+      textInputPlaceholder: 'Écris un message...',
+      textInputSend: 'Envoyer',
     },
   },
   en: {
@@ -98,6 +100,8 @@ const resources = {
       welcomeHeading: 'Ready for your session?',
       welcomeBody: 'Anchor guides you through Exposure and Response Prevention (ERP) exercises. Find a quiet place, and use headphones if you can.',
       welcomeNote: 'Anchor is not a therapist. It is an ERP training companion.',
+      textInputPlaceholder: 'Type a message...',
+      textInputSend: 'Send',
     },
   },
 }

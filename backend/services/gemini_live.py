@@ -412,9 +412,14 @@ class GeminiLiveSession:
                             await self._response_queue.put(msg)
                     except Exception as e:
                         logger.error(f"Error processing response: {e}", exc_info=True)
-                # If receive() ends without exception, the session closed gracefully
-                logger.info("Gemini Live receive stream ended")
-                break
+                # receive() iterator exhausted — this happens after each model
+                # turn in the Gemini Live SDK.  Loop back to start a new
+                # receive() for the next turn, unless the session was closed.
+                if not self._connected or not self.session:
+                    logger.info("Gemini Live session closed, exiting receive loop")
+                    break
+                logger.debug("Gemini Live receive() ended for current turn, restarting")
+                continue
             except asyncio.CancelledError:
                 logger.debug("Receive loop cancelled")
                 return

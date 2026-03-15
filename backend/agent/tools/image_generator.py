@@ -1,4 +1,4 @@
-"""ADK Tool — generate calibrated exposure images via Vertex AI Imagen 3."""
+"""ADK Tool — generate calibrated exposure images via Vertex AI Imagen 4."""
 
 import base64
 import logging
@@ -131,6 +131,7 @@ def image_generator(situation: str, level: int, toc_type: str) -> dict:
                 aspect_ratio="4:3",
                 negative_prompt=_NEGATIVE_PROMPT,
                 safety_filter_level="block_few",
+                person_generation="allow_adult",
             )
             break
         except Exception as exc:

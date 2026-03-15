@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import AudioCapture from './components/AudioCapture'
+import TextInput from './components/TextInput'
 import ExposureImage from './components/ExposureImage'
 import AnxietyMeter from './components/AnxietyMeter'
 import ERPTimer from './components/ERPTimer'
@@ -130,6 +131,7 @@ function App() {
             <ERPTimer data={timerData} />
             <AnxietyMeter onReport={handleAnxietyReport} />
             <AudioCapture sendAudio={sendAudio} muted={anchorSpeaking} />
+            <TextInput onSend={sendMessage} disabled={status !== 'connected'} />
 
             <div className="transcript-panel" aria-live="polite">
               {transcript && transcript.length > 0 ? (

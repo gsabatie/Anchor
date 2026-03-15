@@ -12,7 +12,7 @@ from services.firestore import get_firestore_client
 
 logger = logging.getLogger(__name__)
 
-from config import GEMINI_PRO_MODEL
+from config import GEMINI_PRO_MODEL, GOOGLE_GENAI_API_KEY
 
 MAX_DESCRIPTION_LENGTH = 2000
 FIRESTORE_COLLECTION = "hierarchies"
@@ -25,7 +25,7 @@ _genai_client = None
 def _get_client():
     global _genai_client
     if _genai_client is None:
-        _genai_client = genai.Client()
+        _genai_client = genai.Client(api_key=GOOGLE_GENAI_API_KEY)
     return _genai_client
 
 _GENERATION_PROMPT = """\

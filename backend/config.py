@@ -12,7 +12,7 @@ GEMINI_TEXT_MODEL = os.getenv("GEMINI_TEXT_MODEL", "gemini-2.5-flash")
 GEMINI_PRO_MODEL = os.getenv("GEMINI_PRO_MODEL", "gemini-2.5-pro")
 
 # Vertex AI Imagen 3
-IMAGEN_MODEL = os.getenv("IMAGEN_MODEL", "imagegeneration@006")
+IMAGEN_MODEL = os.getenv("IMAGEN_MODEL", "imagen-4.0-generate-001")
 
 # Google Cloud
 GOOGLE_CLOUD_PROJECT = os.getenv("GOOGLE_CLOUD_PROJECT")
