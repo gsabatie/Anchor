@@ -1,11 +1,30 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  /* Calm Depth palette — calming blue-greens for therapeutic context */
+  --color-ground-100: #F7F6F3;
+  --color-ground-200: #EDECEA;
+  --color-ground-300: #DDDBD7;
+  --color-ground-600: #6B6A67;
+  --color-ground-900: #2C2B29;
+
+  --color-anchor-400: #4A7C8A;
+  --color-anchor-500: #3A6474;
+  --color-anchor-100: #EAF2F5;
+
+  --color-calm:    #5B9B6E;
+  --color-mild:    #A89A5A;
+  --color-high:    #C47840;
+  --color-peak:    #B85050;
+
+  --color-success: #5B9B6E;
+  --color-warning: #A89A5A;
+  --color-danger:  #B85050;
+  --color-crisis:  #7B2D2D;
+
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color: var(--color-ground-900);
+  background-color: var(--color-ground-100);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -15,11 +34,11 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: var(--color-anchor-400);
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: var(--color-anchor-500);
 }
 
 body {
@@ -42,27 +61,27 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--color-ground-200);
+  color: var(--color-ground-900);
   cursor: pointer;
   transition: border-color 0.25s;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: var(--color-anchor-400);
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: 3px solid var(--color-anchor-400);
+  outline-offset: 2px;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
+/* Protect all animations for users with vestibular disorders */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.1ms !important;
   }
 }

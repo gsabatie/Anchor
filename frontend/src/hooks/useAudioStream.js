@@ -47,6 +47,11 @@ export function useAudioStream(onAudioData) {
       const ctx = new AudioContext({ sampleRate: 16000 })
       audioContextRef.current = ctx
 
+      // Safari iOS may silently create at native rate instead of 16kHz
+      if (ctx.sampleRate !== 16000) {
+        console.warn(`AudioContext created at ${ctx.sampleRate}Hz instead of 16000Hz — audio may be distorted`)
+      }
+
       await ctx.audioWorklet.addModule('/pcm-processor.js')
 
       const workletNode = new AudioWorkletNode(ctx, 'pcm-processor')

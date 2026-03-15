@@ -11,6 +11,7 @@ import './App.css'
 function App() {
   const { t } = useTranslation()
   const [sessionActive, setSessionActive] = useState(false)
+  const [showEndConfirm, setShowEndConfirm] = useState(false)
   const token = import.meta.env.VITE_WS_AUTH_TOKEN || ''
 
   const {
@@ -32,18 +33,27 @@ function App() {
   }, [])
 
   const handleEndSession = useCallback(() => {
+    setShowEndConfirm(true)
+  }, [])
+
+  const confirmEndSession = useCallback(() => {
     sendControl('end_session')
     setSessionActive(false)
+    setShowEndConfirm(false)
   }, [sendControl])
+
+  const cancelEndSession = useCallback(() => {
+    setShowEndConfirm(false)
+  }, [])
 
   const handleAnxietyReport = useCallback((level) => {
     sendMessage(t('anxietyReport', { level }))
-  }, [sendMessage])
+  }, [sendMessage, t])
 
   return (
     <div className="app">
       <header>
-        <h1>⚓ {t('title')}</h1>
+        <h1>{t('title')}</h1>
         <p>{t('subtitle')}</p>
         <div className="status-indicator">
           <span className={`status-dot ${status}`}></span>
@@ -77,43 +87,61 @@ function App() {
           </button>
         ) : (
           <div className="session">
-              <div className="transcript-panel">
-                {transcript && transcript.length > 0 ? (
-                  transcript.map((msg, idx) => (
-                    <div key={idx} className={`message ${msg.role}`}>
-                      <span className="role">{msg.role === 'user' ? t('you') : t('anchor')}</span>
-                      <p>{msg.content}</p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="message assistant">
-                    <span className="role">{t('anchor')}</span>
-                    <p>{t('connecting')}</p>
-                  </div>
-                )}
-                {isThinking && (
-                  <div className="message assistant thinking">
-                    <span className="role">{t('anchor')}</span>
-                    <div className="thinking-dots">
-                      <span></span><span></span><span></span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <AudioCapture sendAudio={sendAudio} />
+            {/* Order: Image → Timer → Meter → Audio → Transcript (via CSS order) */}
             <ExposureImage data={exposureImage} />
-              <AnxietyMeter onReport={handleAnxietyReport} />
             <ERPTimer data={timerData} />
+            <AnxietyMeter onReport={handleAnxietyReport} />
+            <AudioCapture sendAudio={sendAudio} />
 
-              <button className="end-btn" onClick={handleEndSession}>
-                {t('endSession')}
-              </button>
+            <div className="transcript-panel">
+              {transcript && transcript.length > 0 ? (
+                transcript.map((msg, idx) => (
+                  <div key={idx} className={`message ${msg.role}`}>
+                    <span className="role">{msg.role === 'user' ? t('you') : t('anchor')}</span>
+                    <p>{msg.content}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="message assistant">
+                  <span className="role">{t('anchor')}</span>
+                  <p>{t('connecting')}</p>
+                </div>
+              )}
+              {isThinking && (
+                <div className="message assistant thinking">
+                  <span className="role">{t('anchor')}</span>
+                  <div className="thinking-dots">
+                    <span></span><span></span><span></span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button className="end-btn" onClick={handleEndSession}>
+              {t('endSession')}
+            </button>
           </div>
         )}
 
         <SessionHistory />
       </main>
+
+      {showEndConfirm && (
+        <div className="confirm-overlay" onClick={cancelEndSession}>
+          <div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title" onClick={e => e.stopPropagation()}>
+            <h2 id="confirm-title">{t('endSessionConfirmTitle')}</h2>
+            <p>{t('endSessionConfirmBody')}</p>
+            <div className="confirm-dialog__actions">
+              <button className="confirm-dialog__cancel" onClick={cancelEndSession}>
+                {t('endSessionCancel')}
+              </button>
+              <button className="confirm-dialog__confirm" onClick={confirmEndSession}>
+                {t('endSessionConfirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

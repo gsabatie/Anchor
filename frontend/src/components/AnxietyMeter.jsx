@@ -3,12 +3,12 @@ import { useTranslation } from 'react-i18next'
 
 const LEVELS = Array.from({ length: 11 }, (_, i) => i)
 
-// Green → Yellow → Orange → Red
+// Calm Depth palette: sage → ochre → burnt earth → muted red
 function levelColor(level) {
-  if (level <= 3) return '#6bcf7f'
-  if (level <= 5) return '#ffd93d'
-  if (level <= 7) return '#ff9a4d'
-  return '#ff5252'
+  if (level <= 3) return '#5B9B6E'
+  if (level <= 5) return '#A89A5A'
+  if (level <= 7) return '#C47840'
+  return '#B85050'
 }
 
 export default function AnxietyMeter({ onReport }) {

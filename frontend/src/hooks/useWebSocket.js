@@ -7,7 +7,12 @@ const WS_URL = `${WS_BASE}/ws/session`
 // Gemini Live outputs PCM16 at 24kHz
 const PLAYBACK_SAMPLE_RATE = 24000
 
-const MAX_RECONNECT_ATTEMPTS = 3
+const MAX_RECONNECT_ATTEMPTS = 10
+const MAX_RECONNECT_DELAY_MS = 30000
+const PLAYBACK_MAX_DRIFT_S = 2.0
+
+// Close codes that should not trigger reconnection
+const PERMANENT_CLOSE_CODES = [4001, 4003, 4004]
 
 export function useWebSocket(token) {
   const wsRef = useRef(null)
@@ -64,10 +69,16 @@ export function useWebSocket(token) {
 
       source.connect(ctx.destination)
 
-      // Schedule seamless playback
+      // Reset scheduling if drift exceeds threshold (e.g. after network stall)
       const now = ctx.currentTime
+      if (nextPlayTimeRef.current > now + PLAYBACK_MAX_DRIFT_S) {
+        nextPlayTimeRef.current = now
+      }
+
+      // Schedule seamless playback
       const startTime = Math.max(now, nextPlayTimeRef.current)
       source.start(startTime)
+      source.onended = () => source.disconnect()
       nextPlayTimeRef.current = startTime + audioBuffer.duration
     } catch (err) {
       console.error('Error playing PCM audio:', err)
@@ -100,14 +111,24 @@ export function useWebSocket(token) {
       console.log('WebSocket disconnected:', event.code, event.reason)
       setIsThinking(false)
 
+      // Don't reconnect on permanent failure codes (auth errors, etc.)
+      if (PERMANENT_CLOSE_CODES.includes(event.code)) {
+        setStatus('disconnected')
+        setError('Authentication failed')
+        return
+      }
+
       if (
         !intentionalDisconnectRef.current &&
         reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS
       ) {
-        const delay = Math.pow(2, reconnectAttemptsRef.current) * 1000
+        // Exponential backoff with jitter to prevent thundering herd
+        const baseDelay = Math.pow(2, Math.min(reconnectAttemptsRef.current, 6)) * 1000
+        const jitter = Math.random() * 1000
+        const delay = Math.min(baseDelay + jitter, MAX_RECONNECT_DELAY_MS)
         reconnectAttemptsRef.current += 1
         console.log(
-          `Reconnecting in ${delay}ms (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`
+          `Reconnecting in ${Math.round(delay)}ms (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`
         )
         setStatus('reconnecting')
         reconnectTimerRef.current = setTimeout(() => {
@@ -123,6 +144,9 @@ export function useWebSocket(token) {
     }
 
     ws.onmessage = (event) => {
+      // Guard against binary frames — only parse string messages as JSON
+      if (typeof event.data !== 'string') return
+
       try {
         const msg = JSON.parse(event.data)
 
@@ -286,6 +310,23 @@ export function useWebSocket(token) {
       }
     }
   }, [token, connect])
+
+  // Reconnect when browser comes back online
+  useEffect(() => {
+    const handleOnline = () => {
+      if (
+        !intentionalDisconnectRef.current &&
+        tokenRef.current &&
+        (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN)
+      ) {
+        reconnectAttemptsRef.current = 0
+        connect(tokenRef.current)
+      }
+    }
+
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [connect])
 
   const sendAudio = useCallback((audioBuffer) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
