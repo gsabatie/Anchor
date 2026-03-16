@@ -8,6 +8,11 @@ output "backend_ws_url" {
   value       = "wss://${replace(google_cloud_run_v2_service.backend.uri, "https://", "")}/ws/session"
 }
 
+output "frontend_url" {
+  description = "Cloud Run frontend HTTPS URL"
+  value       = google_cloud_run_v2_service.frontend.uri
+}
+
 output "artifact_registry" {
   description = "Docker image registry path"
   value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.anchor.repository_id}"
@@ -21,8 +26,9 @@ output "service_account_email" {
 output "secret_ids" {
   description = "Secret Manager secret IDs (add values manually)"
   value = {
-    genai_api_key = google_secret_manager_secret.google_genai_api_key.secret_id
-    ws_auth_token = google_secret_manager_secret.ws_auth_token.secret_id
+    genai_api_key    = google_secret_manager_secret.google_genai_api_key.secret_id
+    ws_auth_token    = google_secret_manager_secret.ws_auth_token.secret_id
+    basic_auth       = google_secret_manager_secret.basic_auth_htpasswd.secret_id
   }
 }
 

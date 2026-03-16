@@ -9,6 +9,11 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+  backend "gcs" {
+    bucket = "anchor-erp-therapy-tfstate"
+    prefix = "terraform/state"
+  }
 }
 
 provider "google" {
@@ -70,6 +75,16 @@ resource "google_secret_manager_secret" "google_genai_api_key" {
 
 resource "google_secret_manager_secret" "ws_auth_token" {
   secret_id = "ws-auth-token"
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [google_project_service.apis["secretmanager.googleapis.com"]]
+}
+
+resource "google_secret_manager_secret" "basic_auth_htpasswd" {
+  secret_id = "basic-auth-htpasswd"
 
   replication {
     auto {}
@@ -180,6 +195,18 @@ resource "google_cloud_run_v2_service" "backend" {
         name  = "FIRESTORE_COLLECTION"
         value = var.firestore_collection
       }
+      env {
+        name  = "GEMINI_TEXT_MODEL"
+        value = var.gemini_text_model
+      }
+      env {
+        name  = "GEMINI_PRO_MODEL"
+        value = var.gemini_pro_model
+      }
+      env {
+        name  = "FRONTEND_URL"
+        value = google_cloud_run_v2_service.frontend.uri
+      }
 
       # --- Secret env vars ---
       env {
@@ -196,6 +223,61 @@ resource "google_cloud_run_v2_service" "backend" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.ws_auth_token.secret_id
+            version = "latest"
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [
+    google_project_service.apis["run.googleapis.com"],
+    google_artifact_registry_repository.anchor,
+  ]
+}
+
+# ---------- Cloud Run — Frontend ----------
+
+resource "google_cloud_run_v2_service" "frontend" {
+  name     = "anchor-frontend"
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL"
+
+  template {
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 2
+    }
+
+    containers {
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/anchor/frontend:latest"
+
+      ports {
+        container_port = 8080
+      }
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "256Mi"
+        }
+      }
+
+      startup_probe {
+        http_get {
+          path = "/healthz"
+          port = 8080
+        }
+        initial_delay_seconds = 2
+        period_seconds        = 5
+        failure_threshold     = 3
+      }
+
+      env {
+        name = "BASIC_AUTH_HTPASSWD"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.basic_auth_htpasswd.secret_id
             version = "latest"
           }
         }

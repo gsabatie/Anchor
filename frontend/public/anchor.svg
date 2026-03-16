@@ -1,6 +1,61 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <circle cx="16" cy="16" r="15" fill="#4A7C8A"/>
-  <path d="M16 6a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" fill="#fff"/>
-  <path d="M16 11v4m0 0H11a5 5 0 0 0 5 5 5 5 0 0 0 5-5h-5zm0 9v2" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M12 24l4 2 4-2" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <!-- Ocean to coral gradient — vertical -->
+    <linearGradient id="oceanCoral" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5A9AAE"/>
+      <stop offset="60%" stop-color="#2C4A5A"/>
+      <stop offset="100%" stop-color="#E8836B"/>
+    </linearGradient>
+    <!-- Subtle glow behind the anchor -->
+    <radialGradient id="glow" cx="50%" cy="45%" r="45%">
+      <stop offset="0%" stop-color="#8CC2D3" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#8CC2D3" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Coral accent gradient for the ring -->
+    <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E8836B"/>
+      <stop offset="100%" stop-color="#D46B53"/>
+    </linearGradient>
+    <!-- Wave gradient -->
+    <linearGradient id="waveGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7DBCA8"/>
+      <stop offset="100%" stop-color="#5A9AAE"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Subtle background glow -->
+  <circle cx="256" cy="230" r="220" fill="url(#glow)"/>
+
+  <!-- === ANCHOR BODY === -->
+
+  <!-- Ring at the top — the "eye" of the anchor, also evokes wholeness/mind -->
+  <circle cx="256" cy="115" r="32" stroke="url(#ringGrad)" stroke-width="14" fill="none"/>
+
+  <!-- Shaft — the vertical line, slightly tapered -->
+  <line x1="256" y1="147" x2="256" y2="370" stroke="url(#oceanCoral)" stroke-width="16" stroke-linecap="round"/>
+
+  <!-- Stock — horizontal bar with soft rounded ends -->
+  <line x1="176" y1="210" x2="336" y2="210" stroke="url(#oceanCoral)" stroke-width="14" stroke-linecap="round"/>
+
+  <!-- === FLUKES — organic wave-shaped arms === -->
+
+  <!-- Left fluke — flowing curve like a wave -->
+  <path
+    d="M256 370 Q256 400, 230 415 Q195 435, 160 420 Q130 408, 120 380 Q112 355, 130 335"
+    stroke="url(#oceanCoral)" stroke-width="14" stroke-linecap="round" fill="none"/>
+
+  <!-- Right fluke — mirror wave -->
+  <path
+    d="M256 370 Q256 400, 282 415 Q317 435, 352 420 Q382 408, 392 380 Q400 355, 382 335"
+    stroke="url(#oceanCoral)" stroke-width="14" stroke-linecap="round" fill="none"/>
+
+  <!-- === BREATHING WAVE — subtle wave crossing through the anchor === -->
+  <path
+    d="M100 290 Q140 270, 180 290 Q220 310, 256 290 Q292 270, 332 290 Q372 310, 412 290"
+    stroke="url(#waveGrad)" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.5"/>
+
+  <!-- Second wave — offset for depth -->
+  <path
+    d="M115 310 Q155 290, 195 310 Q235 330, 256 310 Q277 290, 317 310 Q357 330, 397 310"
+    stroke="url(#waveGrad)" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.3"/>
 </svg>
