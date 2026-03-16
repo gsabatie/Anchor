@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import AudioCapture from './components/AudioCapture'
 import TextInput from './components/TextInput'
 import ExposureImage from './components/ExposureImage'
 import AnxietyMeter from './components/AnxietyMeter'
@@ -31,12 +30,10 @@ function App() {
     error,
     sendMessage,
     sendControl,
-    sendAudio,
     isThinking,
     crisisAlert,
     reassuranceViolation,
     ensureAudioResumed,
-    anchorSpeaking,
   } = useWebSocket(sessionActive ? token : null)
 
   // P4 — Auto-scroll transcript when new messages arrive
@@ -131,7 +128,7 @@ function App() {
             <ExposureImage data={exposureImage} />
             <ERPTimer data={timerData} />
             <AnxietyMeter onReport={handleAnxietyReport} />
-            <AudioCapture sendAudio={sendAudio} muted={anchorSpeaking} />
+            {/* AudioCapture disabled — audio input hidden */}
             <TextInput onSend={sendMessage} disabled={status !== 'connected'} />
 
             <div className="transcript-panel" aria-live="polite">
