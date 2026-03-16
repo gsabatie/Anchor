@@ -294,12 +294,12 @@ resource "google_cloud_run_v2_service" "frontend" {
 # ---------- Cloud Build trigger ----------
 
 resource "google_cloudbuild_trigger" "main_push" {
-  name     = "anchor-deploy-main"
-  location = var.region
+  name            = "anchor-deploy-main"
+  location        = var.region
+  service_account = "projects/${var.project_id}/serviceAccounts/${data.google_project.current.number}@cloudbuild.gserviceaccount.com"
 
-  github {
-    owner = var.github_owner
-    name  = var.github_repo
+  repository_event_config {
+    repository = "projects/${var.project_id}/locations/${var.region}/connections/anchor-github/repositories/anchor-repo"
 
     push {
       branch = "^main$"
