@@ -26,9 +26,9 @@ output "service_account_email" {
 output "secret_ids" {
   description = "Secret Manager secret IDs (add values manually)"
   value = {
-    genai_api_key    = google_secret_manager_secret.google_genai_api_key.secret_id
-    ws_auth_token    = google_secret_manager_secret.ws_auth_token.secret_id
-    basic_auth       = google_secret_manager_secret.basic_auth_htpasswd.secret_id
+    genai_api_key = google_secret_manager_secret.google_genai_api_key.secret_id
+    ws_auth_token = google_secret_manager_secret.ws_auth_token.secret_id
+    basic_auth    = google_secret_manager_secret.basic_auth_htpasswd.secret_id
   }
 }
 

@@ -109,7 +109,7 @@ resource "google_firebaserules_ruleset" "firestore" {
 
   source {
     files {
-      name = "firestore.rules"
+      name    = "firestore.rules"
       content = <<-EOT
         rules_version = '2';
         service cloud.firestore {
