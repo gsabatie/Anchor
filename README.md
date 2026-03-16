@@ -1,94 +1,115 @@
 # ⚓ Anchor
 
-**Compagnon ERP vocal pour les TOC** — Séances d'exposition guidées par IA générative
+**ERP Companion for OCD** — AI-generated exposure therapy sessions
 
-> Hackathon Google — Live Agents + Creative Storyteller
+> Google Hackathon — Live Agents + Creative Storyteller
 
 ---
 
-## Le concept
+## What is Anchor?
 
-Anchor est un agent vocal qui accompagne les personnes vivant avec des TOC (Troubles Obsessionnels Compulsifs) à travers des séances d'ERP (Exposition avec Prévention de la Réponse).
+Anchor is an agent that guides people living with OCD (Obsessive-Compulsive Disorder) through ERP (Exposure and Response Prevention) sessions. The user types messages, Anchor responds with audio and text.
 
-L'agent :
-- **Ecoute** l'utilisateur décrire son TOC en temps réel (Gemini Live)
-- **Construit** une hiérarchie d'exposition personnalisée (niveaux 1 à 10)
-- **Génère** des images des situations anxiogènes (Imagen 3)
-- **Narre** vocalement la scène pendant que l'image apparaît
-- **Coach** l'utilisateur pendant la montée d'anxiété — sans jamais rassurer
-- **Sauvegarde** les progrès dans Firestore
+The agent:
+- **Talks** with the user in real time via Gemini Live
+- **Builds** a personalized exposure hierarchy (levels 1 to 10)
+- **Generates** images of anxiety-inducing situations via Imagen 4
+- **Narrates** the exposure scene with audio while the image appears (interleaved output)
+- **Coaches** the user during anxiety peaks — without ever reassuring
+- **Saves** progress to Firestore
 
-**Différenciateur :** Anchor refuse activement de rassurer l'utilisateur. La réassurance est elle-même une compulsion qui renforce le cycle des TOC. L'Anti-Reassurance Guard intercepte toute formule rassurante et redirige vers les protocoles ERP.
+**Key differentiator:** Anchor actively refuses to reassure the user. Reassurance-seeking is itself a compulsion that reinforces the OCD cycle. The Anti-Reassurance Guard (175+ FR/EN patterns) intercepts any reassuring phrase and redirects to ERP protocols.
 
 ---
 
 ## Architecture
 
 ```
-Utilisateur (Audio + Caméra)
+User (Text input)
         │
-        │ WebSocket
+        │ WebSocket (WSS)
         ▼
    Cloud Run — FastAPI
         │
-        ├── Gemini Live API (audio bidirectionnel)
+        ├── Gemini Live API (text → audio + text)
+        │     Gemini 2.5 Flash Native Audio
         │
         └── Google ADK Agent
-              ├── reassurance_guard
-              ├── hierarchy_builder
-              ├── image_generator (Imagen 3)
-              ├── erp_timer
-              └── session_tracker (Firestore)
+              │
+              ├── reassurance_guard    ← 175+ patterns, blocks reassurance
+              ├── hierarchy_builder    ← Gemini 2.5 Pro + thinking, 10 levels
+              ├── image_generator      ← Vertex AI Imagen 4, calibrated per level
+              ├── erp_timer            ← 5-phase timer, progressive coaching
+              └── session_tracker      ← Firestore CRUD
         │
-        ▼
-   Firebase Hosting — React + Vite
+        ├── Vertex AI (Imagen 4)
+        └── Firestore (sessions)
+
+   Cloud Run — React + Vite (Nginx)
+        ├── ExposureImage     ← Generated image display (fade-in)
+        ├── ERPTimer          ← Circular timer with phases
+        ├── AnxietyMeter      ← 0-10 slider
+        ├── TextInput         ← User text input
+        └── SessionHistory    ← Past sessions history
 ```
 
-## Stack
+## Stack — 100% Google
 
-| Besoin              | Outil                           |
-| ------------------- | ------------------------------- |
-| LLM + Audio Live    | Gemini 2.0 Flash                |
-| Agent orchestration | Google ADK                      |
-| Image generation    | Vertex AI Imagen 3              |
-| Database            | Firestore                       |
-| Secrets             | Secret Manager                  |
-| Backend             | Cloud Run (FastAPI)             |
-| Frontend            | Firebase Hosting (React + Vite) |
-| IaC                 | Terraform                       |
-| CI/CD               | Cloud Build                     |
-
----
-
-## Prérequis
-
-- **Python** 3.12+
-- **Node.js** 22+
-- **Docker** + Docker Compose
-- **gcloud CLI** (`brew install google-cloud-sdk`)
+| Need                | Tool                                     |
+| ------------------- | ---------------------------------------- |
+| LLM + Audio         | Gemini 2.5 Flash Native Audio            |
+| ERP Hierarchy       | Gemini 2.5 Pro (with thinking)           |
+| Agent orchestration | Google ADK                               |
+| Image generation    | Vertex AI Imagen 4                       |
+| Database            | Firestore                                |
+| Secrets             | Secret Manager                           |
+| Backend             | Cloud Run (FastAPI)                      |
+| Frontend            | Cloud Run (React 19 + Vite 7 + Nginx)   |
+| IaC                 | Terraform                                |
+| CI/CD               | Cloud Build (8 automated steps)          |
 
 ---
 
-## Quick start
+## Quick start — Run locally
 
-### 1. Cloner et configurer
+### Prerequisites
+
+| Tool             | Version |
+| ---------------- | ------- |
+| Python           | 3.12+   |
+| Node.js          | 22+     |
+| Docker + Compose | 20.10+  |
+| gcloud CLI       | Latest  |
+
+### 1. Clone and configure
 
 ```bash
 git clone <repo-url> && cd anchor
 cp .env.example .env
-# Editer .env avec vos valeurs (projet GCP, tokens...)
 ```
 
-### 2. Lancer avec Docker Compose
+Edit `.env` — only two values are required:
+
+| Variable               | Where to get it                                                               |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| `GOOGLE_GENAI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey)                        |
+| `WS_AUTH_TOKEN`        | Generate: `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`     |
+
+Copy the same `WS_AUTH_TOKEN` value into `VITE_WS_AUTH_TOKEN`.
+
+### 2. Run with Docker Compose
 
 ```bash
 docker compose up
 ```
 
-- Backend : http://localhost:8000
-- Frontend : http://localhost:5173
+- **Frontend**: http://localhost:5173
+- **Backend**: http://localhost:8000
+- **Health check**: http://localhost:8000/health
 
-### 3. Ou lancer manuellement
+Both services have hot-reload enabled (code changes = automatic restart).
+
+### 3. Or run manually (without Docker)
 
 ```bash
 # Terminal 1 — Backend
@@ -105,98 +126,77 @@ npm run dev
 
 ---
 
-## Variables d'environnement
+## How to test an ERP session
 
-| Variable               | Description            | Valeur par défaut           |
-| ---------------------- | ---------------------- | --------------------------- |
-| `GOOGLE_CLOUD_PROJECT` | ID du projet GCP       | —                           |
-| `GOOGLE_CLOUD_REGION`  | Région GCP             | `europe-west1`              |
-| `GEMINI_MODEL`         | Modèle Gemini Live     | `gemini-2.0-flash-live-001` |
-| `VERTEX_LOCATION`      | Région Vertex AI       | `europe-west1`              |
-| `IMAGEN_MODEL`         | Modèle Imagen          | `imagegeneration@006`       |
-| `FIRESTORE_COLLECTION` | Collection Firestore   | `sessions`                  |
-| `ENV`                  | Environnement          | `development`               |
-| `BACKEND_URL`          | URL du backend         | `http://localhost:8000`     |
-| `FRONTEND_URL`         | URL du frontend        | `http://localhost:5173`     |
-| `WS_AUTH_TOKEN`        | Token auth WebSocket   | —                           |
-| `VITE_WS_AUTH_TOKEN`   | Token WS côté frontend | —                           |
+Once the app is running, open http://localhost:5173 (or the Cloud Run URL in production).
 
----
+### Session flow
 
-## Déploiement GCP
+1. **Click "Start a session"** — a WebSocket connection is established with the backend
+2. **Anchor introduces itself** — audio + text welcome message
+3. **Describe your OCD** — type a message describing a fear (e.g. "I'm afraid of contamination when I touch door handles")
+4. **Hierarchy generated** — Anchor builds 10 personalized exposure levels and validates them with the user
+5. **Exposure** — an image is generated by Imagen 4 matching the level, while Anchor narrates the scene with audio
+6. **ERP Timer** — a timer appears (10-40 min depending on level), Anchor coaches during the anxiety peak
+7. **Anxiety slider** — use the 0-10 slider to report your anxiety level
+8. **End** — Anchor celebrates the resistance and saves the session
 
-### Authentification
+### What to look for
 
-```bash
-gcloud auth login
-gcloud config set project <PROJECT_ID>
+| Feature                       | How to test it                                                                     |
+| ----------------------------- | ---------------------------------------------------------------------------------- |
+| **Anti-Reassurance Guard**    | Ask "Is it going to be OK?" — Anchor refuses to reassure and redirects to ERP      |
+| **Interleaved output**        | During exposure, the image appears while audio narration continues simultaneously  |
+| **Personalized hierarchy**    | Describe a specific OCD → 10 tailored levels are generated                         |
+| **Image generation**          | Each exposure level produces a calibrated image (higher = more anxiety-inducing)   |
+| **ERP Timer with coaching**   | Timer shows 5 phases: opening → rising → peak → falling → closing                 |
+| **Crisis safety**             | Express extreme distress → redirect to 3114 (French suicide hotline)               |
+| **Firestore persistence**     | Close and reopen → session history is preserved                                    |
+
+### Example messages to send
+
 ```
-
-### Activer les APIs
-
-```bash
-gcloud services enable \
-  run.googleapis.com \
-  artifactregistry.googleapis.com \
-  firestore.googleapis.com \
-  aiplatform.googleapis.com \
-  secretmanager.googleapis.com \
-  cloudbuild.googleapis.com \
-  firebasehosting.googleapis.com
-```
-
-### Backend — Cloud Run
-
-```bash
-gcloud builds submit --tag europe-west1-docker.pkg.dev/$PROJECT_ID/anchor/backend ./backend
-
-gcloud run deploy anchor-backend \
-  --image europe-west1-docker.pkg.dev/$PROJECT_ID/anchor/backend \
-  --region europe-west1
-```
-
-### Frontend — Firebase Hosting
-
-```bash
-cd frontend
-npm run build
-npx firebase-tools deploy --only hosting
-```
-
-### Terraform (optionnel)
-
-```bash
-cd terraform
-terraform init
-terraform plan
-terraform apply
+"I'm afraid of contamination, especially door handles and public transport"
+"I check 10 times that my door is locked before leaving"
+"I have violent intrusive thoughts that scare me"
+"Are you sure it's not dangerous?"  ← tests the guard
 ```
 
 ---
 
-## Tests
-
-### Installer les dépendances de test
+## Automated tests
 
 ```bash
 cd backend
 source .venv/bin/activate
+pip install -r requirements.txt
 pip install -r requirements-test.txt
 ```
 
-### Lancer les tests unitaires + intégration (sans clé API)
+### Unit + integration tests (no API key needed)
 
 ```bash
 python -m pytest tests/ -m "not live" -v
 ```
 
-### Lancer les tests end-to-end live (nécessite `GOOGLE_GENAI_API_KEY` dans `.env`)
+Covers:
+- `test_reassurance_guard.py` — 175+ blocked reassurance patterns
+- `test_tools.py` — hierarchy_builder, erp_timer, session_tracker, image_generator (mocked)
+- `test_websocket_integration.py` — WebSocket protocol, auth, messages
+- `test_audio_format.py` — PCM/WebM audio format validation
+- `test_process_response.py` — Gemini response parsing
+
+### End-to-end live tests (requires `GOOGLE_GENAI_API_KEY` in `.env`)
 
 ```bash
 python -m pytest tests/ -m "live" -v
 ```
 
-### Lancer tous les tests
+Covers:
+- `test_e2e_live.py` — Gemini Live connection, real audio exchange
+- `test_e2e_erp_session.py` — full ERP session with the agent
+
+### All tests
 
 ```bash
 python -m pytest tests/ -v
@@ -204,14 +204,144 @@ python -m pytest tests/ -v
 
 ---
 
-## Note clinique
+## Environment variables
 
-Anchor **n'est pas** un substitut à un suivi thérapeutique, ni un outil de diagnostic. C'est un compagnon d'entraînement ERP entre les séances, un support pour pratiquer les techniques de façon autonome.
-
-Si l'utilisateur exprime des idées suicidaires, l'agent redirige immédiatement vers le **3114** (numéro national de prévention du suicide en France).
+| Variable               | Description                        | Default                                | Required |
+| ---------------------- | ---------------------------------- | -------------------------------------- | -------- |
+| `GOOGLE_CLOUD_PROJECT` | GCP project ID                     | `anchor-erp-therapy`                   | Yes      |
+| `GOOGLE_GENAI_API_KEY` | Gemini API key (AI Studio)         | —                                      | Yes      |
+| `WS_AUTH_TOKEN`        | WebSocket auth token (backend)     | —                                      | Yes      |
+| `VITE_WS_AUTH_TOKEN`   | WebSocket auth token (frontend)    | —                                      | Yes      |
+| `GOOGLE_CLOUD_REGION`  | GCP region                         | `europe-west1`                         |          |
+| `GEMINI_MODEL`         | Gemini Live audio model            | `gemini-2.5-flash-native-audio-latest` |          |
+| `GEMINI_TEXT_MODEL`    | Gemini text model                  | `gemini-2.5-flash`                     |          |
+| `GEMINI_PRO_MODEL`     | Model for hierarchy (thinking)     | `gemini-2.5-pro`                       |          |
+| `IMAGEN_MODEL`         | Imagen model                       | `imagen-4.0-generate-001`              |          |
+| `VERTEX_LOCATION`      | Vertex AI region                   | `europe-west1`                         |          |
+| `FIRESTORE_COLLECTION` | Firestore collection               | `sessions`                             |          |
+| `ENV`                  | `development` or `production`      | `development`                          |          |
+| `BACKEND_URL`          | Backend URL                        | `http://localhost:8000`                |          |
+| `FRONTEND_URL`         | Frontend URL (CORS)                | `http://localhost:5173`                |          |
+| `VITE_BACKEND_WS_URL`  | WebSocket URL for frontend         | `ws://localhost:8000`                  |          |
 
 ---
 
-## Licence
+## GCP Deployment
 
-Voir [LICENSE](LICENSE).
+### Option A — Terraform (recommended)
+
+Terraform provisions the full infrastructure: Cloud Run, Artifact Registry, Firestore, Secret Manager, IAM.
+
+```bash
+# 1. Auth
+gcloud auth login
+gcloud auth application-default login
+gcloud config set project <PROJECT_ID>
+
+# 2. Enable APIs
+gcloud services enable \
+  run.googleapis.com \
+  artifactregistry.googleapis.com \
+  firestore.googleapis.com \
+  aiplatform.googleapis.com \
+  secretmanager.googleapis.com \
+  cloudbuild.googleapis.com \
+  compute.googleapis.com
+
+# 3. Terraform
+cd terraform
+terraform init -backend-config="bucket=anchor-erp-therapy-tfstate"
+terraform plan -var="project_id=<PROJECT_ID>"
+terraform apply -var="project_id=<PROJECT_ID>"
+
+# 4. Add secrets (once)
+echo -n "YOUR_GEMINI_KEY" | gcloud secrets versions add google-genai-api-key --data-file=-
+echo -n "YOUR_WS_TOKEN" | gcloud secrets versions add ws-auth-token --data-file=-
+```
+
+### Option B — Cloud Build CI/CD
+
+Each `git push` automatically triggers the pipeline (8 steps):
+
+1. Build + push backend image → Artifact Registry
+2. Deploy backend → Cloud Run (1 CPU, 512Mi, 3600s timeout)
+3. Fetch backend URL, write frontend env vars
+4. Build + push frontend image → Artifact Registry
+5. Deploy frontend → Cloud Run (Nginx, 1 CPU, 256Mi)
+6. Deploy Firestore rules + indexes
+
+```bash
+# Trigger manually
+gcloud builds submit --config cloudbuild.yaml
+```
+
+---
+
+## Monorepo structure
+
+```
+anchor/
+├── backend/
+│   ├── main.py                         ← FastAPI entrypoint
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── requirements-test.txt
+│   ├── agent/
+│   │   ├── anchor_agent.py             ← ADK Agent + ERP state machine
+│   │   ├── tools/
+│   │   │   ├── reassurance_guard.py    ← 175+ patterns FR/EN
+│   │   │   ├── hierarchy_builder.py    ← Gemini Pro + thinking
+│   │   │   ├── image_generator.py      ← Vertex AI Imagen 4
+│   │   │   ├── erp_timer.py            ← 5-phase timer
+│   │   │   └── session_tracker.py      ← Firestore CRUD
+│   │   └── prompts/
+│   │       └── system_prompt.py        ← Full ERP prompt
+│   ├── api/
+│   │   ├── websocket.py                ← Bidirectional WebSocket
+│   │   └── routes.py
+│   ├── services/
+│   │   ├── firestore.py
+│   │   ├── gemini_live.py              ← Gemini Live session
+│   │   ├── secret_manager.py
+│   │   └── vertex.py                   ← Imagen 4 client
+│   └── tests/                          ← 7 test files
+│
+├── frontend/
+│   ├── Dockerfile                      ← Multi-stage Node → Nginx
+│   ├── package.json                    ← React 19 + Vite 7
+│   └── src/
+│       ├── App.jsx
+│       ├── i18n.js                     ← French / English
+│       ├── components/
+│       │   ├── ExposureImage.jsx       ← Exposure image (fade-in)
+│       │   ├── ERPTimer.jsx            ← Circular timer, 5 phases
+│       │   ├── AnxietyMeter.jsx        ← Anxiety slider 0-10
+│       │   ├── TextInput.jsx           ← Text input
+│       │   └── SessionHistory.jsx      ← Firestore history
+│       └── hooks/
+│           └── useWebSocket.js         ← WebSocket + audio playback
+│
+├── terraform/
+│   ├── main.tf                         ← Cloud Run, Firestore, Secrets
+│   ├── iam.tf                          ← Service accounts + permissions
+│   ├── variables.tf
+│   └── outputs.tf
+│
+├── cloudbuild.yaml                     ← CI/CD, 8 steps
+├── docker-compose.yml                  ← Local dev
+└── .env.example
+```
+
+---
+
+## Clinical note
+
+Anchor is **not** a substitute for professional therapy, nor a diagnostic tool. It is an ERP training companion between sessions — a support for practicing techniques independently.
+
+If the user expresses suicidal ideation, the agent immediately redirects to **3114** (France's national suicide prevention hotline).
+
+---
+
+## License
+
+See [LICENSE](LICENSE).
